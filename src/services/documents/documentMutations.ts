@@ -1,11 +1,12 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ValidationResult } from '@/types/documents';
 
 // Upload a new document
-export const uploadDocument = async (file: File, title: string): Promise<any> => {
+export const uploadDocument = async (file: File, title: string, userId?: string): Promise<any> => {
   try {
-    console.log(`Starting document upload: ${title}`);
+    console.log(`Starting document upload: ${title}${userId ? `, by user: ${userId}` : ''}`);
     
     // 1. Upload file to storage
     const fileExt = file.name.split('.').pop();
@@ -41,6 +42,7 @@ export const uploadDocument = async (file: File, title: string): Promise<any> =>
         progress: 0,
         flagged: false,
         storage_path: filePath,
+        created_by: userId || null, // Add the user ID if provided
         last_updated: new Date().toISOString() // Ensure last_updated is set
       })
       .select()

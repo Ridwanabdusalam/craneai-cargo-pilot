@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from 'sonner';
 import { Progress } from "@/components/ui/progress";
 import { uploadDocument } from '@/services/documents/documentMutations';
+import { useAuth } from '@/context/AuthContext';
 
 interface DocumentUploadProps {
   onUploadComplete?: () => void;
@@ -24,6 +24,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth(); // Get the current authenticated user
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -96,6 +97,12 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
       return;
     }
 
+    if (!user) {
+      toast.error('You must be logged in to upload documents');
+      setUploadError('Authentication required');
+      return;
+    }
+
     setUploading(true);
     setUploadError(null);
 
@@ -111,10 +118,10 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
     }, 300);
 
     try {
-      console.log('Starting document upload...', {file: file.name, title});
+      console.log('Starting document upload...', {file: file.name, title, userId: user.id});
       
-      // Call the document upload service
-      const result = await uploadDocument(file, title);
+      // Pass the user ID to the upload function
+      const result = await uploadDocument(file, title, user.id);
       
       // Ensure progress reaches 100%
       clearInterval(interval);
