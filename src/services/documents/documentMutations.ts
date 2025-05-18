@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ValidationResult } from '@/types/documents';
@@ -15,24 +14,8 @@ export const uploadDocument = async (file: File, title: string): Promise<any> =>
     
     console.log(`Uploading file to storage path: ${filePath}`);
     
-    // Check if storage bucket exists first
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const documentsBucket = buckets?.find(b => b.name === 'documents');
-    
-    if (!documentsBucket) {
-      console.log('Documents bucket not found, creating it');
-      const { error: bucketError } = await supabase.storage.createBucket('documents', {
-        public: false,
-        fileSizeLimit: 10485760, // 10MB in bytes
-      });
-      
-      if (bucketError) {
-        console.error('Error creating bucket:', bucketError);
-        throw new Error(`Failed to create storage bucket: ${bucketError.message}`);
-      }
-    }
-    
-    // Now upload the file
+    // Upload the file directly without checking if bucket exists
+    // The bucket has been created via SQL migration
     const { error: uploadError, data: storageData } = await supabase.storage
       .from('documents')
       .upload(filePath, file, {

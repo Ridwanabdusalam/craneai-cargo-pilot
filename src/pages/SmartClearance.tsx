@@ -63,6 +63,11 @@ const SmartClearance = () => {
         docsResult = await getDocumentsByStatus(activeTab as DocumentStatus);
       }
       
+      // Only show toast on success if there was a previous error
+      if (fetchError) {
+        toast.success('Documents loaded successfully');
+      }
+      
       console.log('Documents fetched successfully:', docsResult);
       setDocuments(docsResult);
       
@@ -79,11 +84,12 @@ const SmartClearance = () => {
     } catch (error) {
       console.error('Error fetching documents:', error);
       setFetchError('Failed to load documents. Please try again.');
+      // Only show toast once, not in the service and here
       toast.error('Failed to load documents');
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, searchQuery]);
+  }, [activeTab, searchQuery, fetchError]); 
   
   // Initial data fetch
   useEffect(() => {
@@ -127,7 +133,7 @@ const SmartClearance = () => {
     // Trigger a refetch by updating fetchTrigger with a delay to ensure database updates are complete
     setTimeout(() => {
       setFetchTrigger(prev => prev + 1);
-    }, 500);
+    }, 1000); // Increased delay to ensure all database operations complete
   };
   
   // Handle view document details

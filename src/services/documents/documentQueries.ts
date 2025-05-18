@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Document, DocumentStatus } from '@/types/documents';
@@ -9,13 +8,7 @@ export const getAllDocuments = async (): Promise<Document[]> => {
   try {
     console.log('Fetching all documents');
     
-    // First check if documents table exists
-    const { data: tableExists } = await supabase
-      .from('documents')
-      .select('id')
-      .limit(1)
-      .throwOnError();
-    
+    // Check if documents table exists by querying it directly
     const { data: documents, error } = await supabase
       .from('documents')
       .select(`
@@ -29,8 +22,7 @@ export const getAllDocuments = async (): Promise<Document[]> => {
       
     if (error) {
       console.error('Error in getAllDocuments:', error);
-      toast.error('Failed to load documents');
-      return []; // Return empty array instead of throwing to prevent UI issues
+      throw error; // Throw the error to be caught by the try-catch
     }
     
     if (!documents || documents.length === 0) {
@@ -42,7 +34,7 @@ export const getAllDocuments = async (): Promise<Document[]> => {
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error('Error fetching documents:', error);
-    toast.error('Failed to load documents');
+    // No toast here, let the component handle the error display
     return []; // Return empty array to prevent UI issues
   }
 };
@@ -65,8 +57,7 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
       
     if (error) {
       console.error(`Error in getDocumentsByStatus(${status}):`, error);
-      toast.error(`Failed to load ${status} documents`);
-      return []; // Return empty array instead of throwing
+      throw error; // Throw the error to be caught by the try-catch
     }
     
     if (!documents || documents.length === 0) {
@@ -78,7 +69,7 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error(`Error fetching ${status} documents:`, error);
-    toast.error(`Failed to load ${status} documents`);
+    // No toast here, let the component handle the error display
     return []; // Return empty array
   }
 };
