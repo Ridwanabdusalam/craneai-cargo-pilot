@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,173 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import DocumentCard from '@/components/customs/DocumentCard';
+import DocumentUpload from '@/components/customs/DocumentUpload';
+import DocumentDetails from '@/components/customs/DocumentDetails';
+import DocumentFilters from '@/components/customs/DocumentFilters';
 import { toast } from 'sonner';
+import { 
+  getAllDocuments, 
+  getDocumentsByStatus, 
+  getDocumentById,
+  searchDocuments
+} from '@/services/documentService';
+import { Document, DocumentStatus, DocumentFilters as IDocumentFilters } from '@/types/documents';
 
 const SmartClearance = () => {
-  const handleUploadClick = () => {
-    toast.info("Document upload functionality will be available in the next release.");
+  // State
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('all');
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Constants
+  const DOCUMENTS_PER_PAGE = 6;
+  
+  // Fetch documents
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+  
+  // Apply filtering when tab or search changes
+  useEffect(() => {
+    applyFilters();
+  }, [activeTab, documents, searchQuery]);
+  
+  // Function to fetch all documents
+  const fetchDocuments = async () => {
+    setIsLoading(true);
+    try {
+      const allDocs = await getAllDocuments();
+      setDocuments(allDocs);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      toast.error('Failed to load documents');
+    } finally {
+      setIsLoading(false);
+    }
   };
+  
+  // Apply filters based on active tab and search query
+  const applyFilters = async () => {
+    let filtered: Document[] = [];
+    
+    try {
+      if (activeTab === 'all') {
+        filtered = documents;
+      } else {
+        filtered = documents.filter(doc => doc.status === activeTab);
+      }
+      
+      // Apply search if query exists
+      if (searchQuery) {
+        filtered = filtered.filter(doc => 
+          doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          doc.type.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      }
+      
+      setFilteredDocuments(filtered);
+      setCurrentPage(1); // Reset to first page when filters change
+    } catch (error) {
+      console.error('Error applying filters:', error);
+      toast.error('Failed to filter documents');
+    }
+  };
+  
+  // Handle search
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+  
+  // Handle filter change
+  const handleFilterChange = (filters: IDocumentFilters) => {
+    // Apply additional filters here
+    applyFilters();
+  };
+  
+  // Handle document upload
+  const handleUploadComplete = () => {
+    setIsUploadOpen(false);
+    fetchDocuments();
+    toast.success('Document uploaded successfully!');
+  };
+  
+  // Handle view document details
+  const handleViewDocument = (documentId: string) => {
+    const document = documents.find(doc => doc.id === documentId);
+    if (document) {
+      setSelectedDocument(document);
+    }
+  };
+  
+  // Close document details
+  const handleCloseDetails = () => {
+    setSelectedDocument(null);
+  };
+  
+  // Handle document update (refresh)
+  const handleDocumentUpdate = () => {
+    fetchDocuments();
+    if (selectedDocument) {
+      // Refresh the selected document details
+      const updatedDoc = documents.find(doc => doc.id === selectedDocument.id);
+      if (updatedDoc) {
+        setSelectedDocument(updatedDoc);
+      }
+    }
+  };
+  
+  // Calculate counts by status
+  const getStatusCounts = () => {
+    const counts = {
+      all: documents.length,
+      pending: documents.filter(doc => doc.status === 'pending').length,
+      processing: documents.filter(doc => doc.status === 'processing').length,
+      verified: documents.filter(doc => doc.status === 'verified').length,
+      rejected: documents.filter(doc => doc.status === 'rejected').length
+    };
+    return counts;
+  };
+  
+  const statusCounts = getStatusCounts();
+  
+  // Pagination
+  const totalPages = Math.ceil(filteredDocuments.length / DOCUMENTS_PER_PAGE);
+  const paginatedDocuments = filteredDocuments.slice(
+    (currentPage - 1) * DOCUMENTS_PER_PAGE,
+    currentPage * DOCUMENTS_PER_PAGE
+  );
+  
+  const handlePreviousPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+  
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+
+  // If a document is selected, show its details
+  if (selectedDocument) {
+    return (
+      <DocumentDetails 
+        document={selectedDocument} 
+        onBack={handleCloseDetails} 
+        onUpdate={handleDocumentUpdate} 
+      />
+    );
+  }
   
   return (
     <div className="space-y-6">
@@ -36,7 +196,10 @@ const SmartClearance = () => {
               <FileText size={18} className="text-crane-blue mr-2" />
               Document Processing Pipeline
             </CardTitle>
-            <Button onClick={handleUploadClick} className="bg-crane-blue hover:bg-opacity-90">
+            <Button 
+              onClick={() => setIsUploadOpen(true)} 
+              className="bg-crane-blue hover:bg-opacity-90"
+            >
               <Upload size={18} className="mr-2" />
               Upload Document
             </Button>
@@ -105,150 +268,99 @@ const SmartClearance = () => {
             </Card>
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search documents..." className="pl-10" />
-            </div>
-            
-            <div className="flex gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <Filter size={16} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Filter Documents</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>All Documents</DropdownMenuItem>
-                  <DropdownMenuItem>Commercial Invoices</DropdownMenuItem>
-                  <DropdownMenuItem>Bills of Lading</DropdownMenuItem>
-                  <DropdownMenuItem>Packing Lists</DropdownMenuItem>
-                  <DropdownMenuItem>Certificates of Origin</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <SortAsc size={16} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Sort By</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>Newest First</DropdownMenuItem>
-                  <DropdownMenuItem>Oldest First</DropdownMenuItem>
-                  <DropdownMenuItem>Status (Critical First)</DropdownMenuItem>
-                  <DropdownMenuItem>Document Type</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-              <Button variant="outline" size="icon">
-                <FilterX size={16} />
-              </Button>
-            </div>
-          </div>
+          <DocumentFilters 
+            totalCount={documents.length}
+            onFilterChange={handleFilterChange}
+            onSearch={handleSearch}
+          />
           
-          <Tabs defaultValue="all" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="all">All (28)</TabsTrigger>
-              <TabsTrigger value="pending">Pending (8)</TabsTrigger>
-              <TabsTrigger value="processing">Processing (12)</TabsTrigger>
-              <TabsTrigger value="verified">Verified (5)</TabsTrigger>
-              <TabsTrigger value="rejected">Rejected (3)</TabsTrigger>
+              <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
+              <TabsTrigger value="pending">Pending ({statusCounts.pending})</TabsTrigger>
+              <TabsTrigger value="processing">Processing ({statusCounts.processing})</TabsTrigger>
+              <TabsTrigger value="verified">Verified ({statusCounts.verified})</TabsTrigger>
+              <TabsTrigger value="rejected">Rejected ({statusCounts.rejected})</TabsTrigger>
             </TabsList>
-            <TabsContent value="all" className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <DocumentCard
-                  title="Commercial Invoice #INV-89302"
-                  type="PDF Document"
-                  lastUpdated="10 mins ago"
-                  status="processing"
-                  progress={65}
-                />
-                <DocumentCard
-                  title="Bill of Lading #BL-44985"
-                  type="PDF Document"
-                  lastUpdated="1 day ago"
-                  status="rejected"
-                  flagged={true}
-                  progress={100}
-                />
-                <DocumentCard
-                  title="Packing List #PL-67122"
-                  type="PDF Document"
-                  lastUpdated="2 hours ago"
-                  status="verified"
-                />
-                <DocumentCard
-                  title="Certificate of Origin #CO-11234"
-                  type="PDF Document"
-                  lastUpdated="Just now"
-                  status="pending"
-                  progress={10}
-                />
-                <DocumentCard
-                  title="Commercial Invoice #INV-89123"
-                  type="PDF Document"
-                  lastUpdated="3 hours ago"
-                  status="processing"
-                  progress={42}
-                />
-                <DocumentCard
-                  title="Dangerous Goods Dec #DG-5501"
-                  type="PDF Document"
-                  lastUpdated="5 hours ago"
-                  status="verified"
-                />
-              </div>
-            </TabsContent>
-            <TabsContent value="pending">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <DocumentCard
-                  title="Certificate of Origin #CO-11234"
-                  type="PDF Document"
-                  lastUpdated="Just now"
-                  status="pending"
-                  progress={10}
-                />
-                <DocumentCard
-                  title="Shipper's Letter #SL-8834"
-                  type="PDF Document"
-                  lastUpdated="1 hour ago"
-                  status="pending"
-                  progress={0}
-                />
-              </div>
-            </TabsContent>
-            <TabsContent value="processing">
-              <div className="flex items-center justify-center h-52">
-                <p className="text-muted-foreground">Processing documents will appear here</p>
-              </div>
-            </TabsContent>
-            <TabsContent value="verified">
-              <div className="flex items-center justify-center h-52">
-                <p className="text-muted-foreground">Verified documents will appear here</p>
-              </div>
-            </TabsContent>
-            <TabsContent value="rejected">
-              <div className="flex items-center justify-center h-52">
-                <p className="text-muted-foreground">Rejected documents will appear here</p>
-              </div>
+            <TabsContent value={activeTab} className="mt-4">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-52">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-muted-foreground">Loading documents...</p>
+                  </div>
+                </div>
+              ) : paginatedDocuments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-52 text-center">
+                  <FileText size={48} className="text-muted-foreground opacity-20 mb-4" />
+                  <p className="text-muted-foreground">No documents found</p>
+                  <Button 
+                    variant="link" 
+                    onClick={() => setIsUploadOpen(true)} 
+                    className="mt-2"
+                  >
+                    Upload your first document
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedDocuments.map((document) => (
+                    <DocumentCard
+                      key={document.id}
+                      title={document.title}
+                      type={document.type}
+                      lastUpdated={document.lastUpdated}
+                      status={document.status}
+                      flagged={document.flagged}
+                      progress={document.progress}
+                      onViewDetails={() => handleViewDocument(document.id)}
+                    />
+                  ))}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
         <CardFooter className="border-t flex justify-between pt-4">
           <div className="text-sm text-muted-foreground">
-            Showing 6 of 28 documents
+            Showing {paginatedDocuments.length} of {filteredDocuments.length} documents
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>Previous</Button>
-            <Button variant="outline" size="sm">Next</Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              disabled={currentPage === 1 || filteredDocuments.length === 0}
+              onClick={handlePreviousPage}
+            >
+              Previous
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              disabled={currentPage === totalPages || filteredDocuments.length === 0}
+              onClick={handleNextPage}
+            >
+              Next
+            </Button>
           </div>
         </CardFooter>
       </Card>
+
+      {/* Document Upload Dialog */}
+      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Upload Document</DialogTitle>
+            <DialogDescription>
+              Upload a document to process through the SmartClearance engine.
+            </DialogDescription>
+          </DialogHeader>
+          <DocumentUpload 
+            onUploadComplete={handleUploadComplete}
+            onCancel={() => setIsUploadOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

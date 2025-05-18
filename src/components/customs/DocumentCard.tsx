@@ -1,13 +1,12 @@
 
 import React from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { FileText, AlertTriangle, CheckCircle } from 'lucide-react';
+import { FileText, AlertTriangle, CheckCircle, Clock, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-
-type DocumentStatus = 'pending' | 'processing' | 'verified' | 'rejected';
+import { DocumentStatus } from '@/types/documents';
 
 interface DocumentCardProps {
   title: string;
@@ -16,6 +15,7 @@ interface DocumentCardProps {
   status: DocumentStatus;
   flagged?: boolean;
   progress?: number;
+  onViewDetails?: () => void;
   className?: string;
 }
 
@@ -26,6 +26,7 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
   status,
   flagged = false,
   progress = 100,
+  onViewDetails,
   className
 }) => {
   const getStatusColor = () => {
@@ -48,6 +49,39 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
     }
   };
 
+  const getStatusIcon = () => {
+    switch (status) {
+      case 'pending': return <Clock size={16} className="mr-1" />;
+      case 'processing': return <Search size={16} className="mr-1" />;
+      case 'verified': return <CheckCircle size={16} className="mr-1" />;
+      case 'rejected': return <AlertTriangle size={16} className="mr-1" />;
+      default: return <FileText size={16} className="mr-1" />;
+    }
+  };
+
+  // Format the timestamp as a relative time (e.g., "5 min ago")
+  const formatRelativeTime = (timestamp: string) => {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffMs = now.getTime() - date.getTime();
+    
+    // Convert to seconds
+    const diffSecs = Math.floor(diffMs / 1000);
+    
+    if (diffSecs < 60) {
+      return 'Just now';
+    } else if (diffSecs < 3600) {
+      const mins = Math.floor(diffSecs / 60);
+      return `${mins} min${mins > 1 ? 's' : ''} ago`;
+    } else if (diffSecs < 86400) {
+      const hours = Math.floor(diffSecs / 3600);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else {
+      const days = Math.floor(diffSecs / 86400);
+      return `${days} day${days > 1 ? 's' : ''} ago`;
+    }
+  };
+
   return (
     <Card className={cn("overflow-hidden border hover:shadow-md transition-shadow", className)}>
       <CardContent className="p-0">
@@ -60,7 +94,10 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
             <p className="text-xs text-muted-foreground">{type}</p>
           </div>
           <Badge className={getStatusColor()}>
-            {getStatusText()}
+            <div className="flex items-center">
+              {getStatusIcon()}
+              {getStatusText()}
+            </div>
           </Badge>
         </div>
         
@@ -84,12 +121,26 @@ const DocumentCard: React.FC<DocumentCardProps> = ({
               <span className="text-xs text-green-800">All fields validated</span>
             </div>
           )}
+          
+          {status === 'pending' && (
+            <div className="mt-3 px-3 py-2 bg-yellow-50 border border-yellow-100 rounded-md flex items-center">
+              <Clock size={14} className="text-yellow-600 mr-2" />
+              <span className="text-xs text-yellow-800">Waiting to be processed</span>
+            </div>
+          )}
         </div>
       </CardContent>
       
       <CardFooter className="px-4 py-3 bg-muted/30 border-t border-border flex justify-between">
-        <span className="text-xs text-muted-foreground">Updated {lastUpdated}</span>
-        <Button variant="ghost" size="sm" className="h-7 text-xs">View Details</Button>
+        <span className="text-xs text-muted-foreground">Updated {formatRelativeTime(lastUpdated)}</span>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-7 text-xs"
+          onClick={onViewDetails}
+        >
+          View Details
+        </Button>
       </CardFooter>
     </Card>
   );
