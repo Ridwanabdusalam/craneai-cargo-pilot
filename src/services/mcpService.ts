@@ -5,9 +5,24 @@ import { toast } from 'sonner';
 // Query the Model Context Protocol with logistics context
 export const queryWithContext = async (query: string, contextTypes: string[] = []): Promise<string> => {
   try {
+    // Show loading indicator for longer queries
+    let toastId;
+    
+    if (query.length > 50) {
+      toastId = toast.loading('Getting AI response...');
+    }
+    
     const { data, error } = await supabase.functions.invoke('model-context-protocol', {
-      body: { query, contextTypes }
+      body: { 
+        query, 
+        contextTypes,
+        useVectorSearch: true // Enable vector search for better context retrieval
+      }
     });
+    
+    if (toastId) {
+      toast.dismiss(toastId);
+    }
     
     if (error) {
       throw error;
@@ -21,10 +36,14 @@ export const queryWithContext = async (query: string, contextTypes: string[] = [
   }
 };
 
-// Seed the knowledge base with logistics domain knowledge
+// Seed the knowledge base with logistics domain knowledge and website content
 export const seedKnowledgeBase = async (): Promise<boolean> => {
   try {
-    const { data, error } = await supabase.functions.invoke('seed-knowledge-base', {});
+    const { data, error } = await supabase.functions.invoke('seed-knowledge-base', {
+      body: {
+        includeWebsiteContent: true // Include crawled website content
+      }
+    });
     
     if (error) {
       throw error;
@@ -57,6 +76,6 @@ export const getContextSourceTypes = async (): Promise<string[]> => {
     return Array.from(uniqueTypes);
   } catch (error) {
     console.error('Error fetching context source types:', error);
-    return ['company_info', 'services', 'industry', 'technology', 'compliance'];
+    return ['company_info', 'services', 'industry', 'technology', 'compliance', 'website_content'];
   }
 };

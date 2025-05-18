@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -92,11 +93,11 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
     setUploading(true);
 
-    // Simulate progress updates for better UX
+    // Use a single progress update interval
     const interval = setInterval(() => {
       setUploadProgress(prev => {
         const next = prev + 5;
-        return next > 95 ? 95 : next; // Only go up to 95%, final 5% when complete
+        return next > 95 ? 95 : next;
       });
     }, 300);
 
@@ -107,16 +108,18 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
       // Ensure progress reaches 100%
       setUploadProgress(100);
       
-      // Show success message
-      toast.success('Document uploaded successfully!');
+      // Clear the interval
+      clearInterval(interval);
       
-      // Call the onUploadComplete callback
+      // Let the parent component know that upload is complete
+      // but don't show a toast message here - SmartClearance will handle that
       if (onUploadComplete) {
         onUploadComplete();
       }
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('Error uploading document. Please try again.');
+      setUploadProgress(0);  // Reset progress on error
     } finally {
       clearInterval(interval);
       setUploading(false);

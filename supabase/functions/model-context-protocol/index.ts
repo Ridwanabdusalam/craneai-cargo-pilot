@@ -39,26 +39,47 @@ async function createEmbedding(text: string): Promise<number[]> {
   }
 }
 
-// Fetch relevant context based on query
+// Fetch relevant context based on query using vector search
 async function fetchRelevantContext(
   supabase: any, 
   query: string, 
   contextTypes: string[] = [], 
+  useVectorSearch: boolean = false,
   limit: number = 5
 ): Promise<string> {
   try {
-    // Get embedding for the query
-    const queryEmbedding = await createEmbedding(query);
+    // Get embedding for the query if using vector search
+    let queryEmbedding = null;
+    if (useVectorSearch) {
+      queryEmbedding = await createEmbedding(query);
+    }
     
     // Construct the query to find relevant context
-    let contextQuery = supabase
-      .from("knowledge_vectors")
-      .select(`
-        id,
-        content,
-        context_sources(name, description, source_type)
-      `)
-      .limit(limit);
+    let contextQuery;
+    
+    if (useVectorSearch && queryEmbedding) {
+      // Vector similarity search if embeddings are enabled and successful
+      contextQuery = supabase
+        .from("knowledge_vectors")
+        .select(`
+          id,
+          content,
+          embedding,
+          context_sources(name, description, source_type)
+        `)
+        .order('embedding <-> ${queryEmbedding}') // Vector similarity search
+        .limit(limit);
+    } else {
+      // Fallback to regular search
+      contextQuery = supabase
+        .from("knowledge_vectors")
+        .select(`
+          id,
+          content,
+          context_sources(name, description, source_type)
+        `)
+        .limit(limit);
+    }
     
     // Filter by context type if provided
     if (contextTypes.length > 0) {
@@ -75,8 +96,7 @@ async function fetchRelevantContext(
       return "No relevant context available.";
     }
     
-    // For now, just return all contexts
-    // In a real implementation, we'd use vector similarity search using pgvector
+    // Combine all context content
     return contexts.map((c: any) => c.content).join("\n\n");
   } catch (error) {
     console.error("Error fetching relevant context:", error);
@@ -85,10 +105,10 @@ async function fetchRelevantContext(
 }
 
 // Process a query using the Model Context Protocol
-async function processWithMCP(supabase: any, query: string, contextTypes: string[] = []): Promise<string> {
+async function processWithMCP(supabase: any, query: string, contextTypes: string[] = [], useVectorSearch: boolean = false): Promise<string> {
   try {
     // Step 1: Context Fetching - Retrieve relevant context
-    const relevantContext = await fetchRelevantContext(supabase, query, contextTypes);
+    const relevantContext = await fetchRelevantContext(supabase, query, contextTypes, useVectorSearch);
     
     // Step 2: Context Injection - Merge context with the prompt
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -140,7 +160,7 @@ serve(async (req: Request) => {
   
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { query, contextTypes = [] } = await req.json();
+    const { query, contextTypes = [], useVectorSearch = false } = await req.json();
     
     if (!query) {
       return new Response(
@@ -149,7 +169,7 @@ serve(async (req: Request) => {
       );
     }
     
-    const response = await processWithMCP(supabase, query, contextTypes);
+    const response = await processWithMCP(supabase, query, contextTypes, useVectorSearch);
     
     return new Response(
       JSON.stringify({ response }),

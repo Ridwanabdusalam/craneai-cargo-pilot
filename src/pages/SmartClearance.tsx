@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
@@ -113,8 +112,12 @@ const SmartClearance = () => {
   // Handle document upload
   const handleUploadComplete = () => {
     setIsUploadOpen(false);
-    fetchDocuments();
     toast.success('Document uploaded successfully!');
+    
+    // Fetch latest documents after a short delay to ensure the backend has processed the upload
+    setTimeout(() => {
+      fetchDocuments();
+    }, 500);
   };
   
   // Handle view document details
