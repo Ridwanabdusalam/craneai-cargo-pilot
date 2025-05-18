@@ -14,7 +14,7 @@ import {
 
 interface DocumentTypeFilterProps {
   documentTypes: string[];
-  onChange: (types: string[]) => void;
+  onChange: (updater: (prev: string[]) => string[]) => void;
 }
 
 // Document type options

@@ -34,15 +34,6 @@ const DocumentFilter: React.FC<DocumentFilterProps> = ({
     // Apply sorting logic based on selected option
     // This would typically be passed to the parent component
   };
-
-  const handleDocumentTypeChange = (updater: (prev: string[]) => string[]) => {
-    setDocumentTypes(prev => {
-      const newTypes = updater(prev);
-      
-      // Update filters via the callback
-      return newTypes;
-    });
-  };
   
   return (
     <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -51,7 +42,7 @@ const DocumentFilter: React.FC<DocumentFilterProps> = ({
       <div className="flex gap-2">
         <DocumentTypeFilter 
           documentTypes={documentTypes} 
-          onChange={handleDocumentTypeChange}
+          onChange={setDocumentTypes}
         />
         
         <SortMenu 
