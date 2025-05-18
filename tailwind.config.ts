@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,13 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				crane: {
+					blue: "#0A2647",
+					teal: "#2E8B57",
+					coral: "#FF6B6B",
+					lightblue: "#7AB8F5",
+					gray: "#F0F4F8"
 				}
 			},
 			borderRadius: {
@@ -84,11 +92,29 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-subtle': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.8' }
+				},
+				'slide-from-left': {
+					'0%': { transform: 'translateX(-100%)' },
+					'100%': { transform: 'translateX(0)' }
+				},
+				'slide-from-right': {
+					'0%': { transform: 'translateX(100%)' },
+					'100%': { transform: 'translateX(0)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite',
+				'slide-from-left': 'slide-from-left 0.3s ease-out',
+				'slide-from-right': 'slide-from-right 0.3s ease-out'
+			},
+			fontFamily: {
+				sans: ['Inter', 'sans-serif']
 			}
 		}
 	},
