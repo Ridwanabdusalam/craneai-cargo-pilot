@@ -8,14 +8,16 @@ export const queryWithContext = async (query: string, contextTypes: string[] = [
     // Show loading indicator for longer queries
     let toastId;
     
-    if (query.length > 50) {
+    if (query.length > 20) {
       toastId = toast.loading('Getting AI response...');
     }
+    
+    console.log('Querying MCP with:', {query, contextTypes, useVectorSearch: true});
     
     const { data, error } = await supabase.functions.invoke('model-context-protocol', {
       body: { 
         query, 
-        contextTypes,
+        contextTypes: contextTypes.length > 0 ? contextTypes : undefined,
         useVectorSearch: true // Enable vector search for better context retrieval
       }
     });
@@ -30,9 +32,11 @@ export const queryWithContext = async (query: string, contextTypes: string[] = [
     }
     
     if (!data || !data.response) {
+      console.error('No response data received from AI:', data);
       throw new Error('No response data received from AI');
     }
     
+    console.log('AI response received');
     return data.response;
   } catch (error) {
     console.error('Error calling Model Context Protocol:', error);
@@ -46,9 +50,12 @@ export const seedKnowledgeBase = async (): Promise<boolean> => {
   try {
     const toastId = toast.loading('Seeding knowledge base...');
     
+    console.log('Starting knowledge base seeding');
+    
     const { data, error } = await supabase.functions.invoke('seed-knowledge-base', {
       body: {
-        includeWebsiteContent: true // Include crawled website content
+        includeWebsiteContent: true, // Include crawled website content
+        forceRefresh: true // Force refresh the knowledge base
       }
     });
     
@@ -73,6 +80,8 @@ export const seedKnowledgeBase = async (): Promise<boolean> => {
 // Get all context source types (for filtering)
 export const getContextSourceTypes = async (): Promise<string[]> => {
   try {
+    console.log('Fetching context source types');
+    
     // Use a different approach to get distinct values
     const { data, error } = await supabase
       .from('context_sources')
@@ -84,7 +93,7 @@ export const getContextSourceTypes = async (): Promise<string[]> => {
     }
     
     if (!data || data.length === 0) {
-      console.warn('No context source types found');
+      console.warn('No context source types found, returning defaults');
       return ['company_info', 'services', 'industry', 'technology', 'compliance', 'website_content'];
     }
     
@@ -97,6 +106,8 @@ export const getContextSourceTypes = async (): Promise<string[]> => {
     });
     
     const typeArray = Array.from(uniqueTypes);
+    console.log('Context source types:', typeArray);
+    
     return typeArray.length > 0 
       ? typeArray 
       : ['company_info', 'services', 'industry', 'technology', 'compliance', 'website_content'];

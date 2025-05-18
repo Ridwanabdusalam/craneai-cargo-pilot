@@ -93,29 +93,36 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
     setUploading(true);
 
-    // Use a single progress update interval
+    // Use a more realistic progress simulation
     const interval = setInterval(() => {
       setUploadProgress(prev => {
-        const next = prev + 5;
-        return next > 95 ? 95 : next;
+        // More gradual progress that leaves room for completion
+        if (prev < 60) return prev + 10;
+        if (prev < 85) return prev + 3;
+        if (prev < 95) return prev + 1;
+        return 95; // Cap at 95% until complete
       });
-    }, 300);
+    }, 400);
 
     try {
+      console.log('Starting document upload...', {file: file.name, title});
+      
       // Call the document upload service
       await uploadDocument(file, title);
       
       // Ensure progress reaches 100%
+      clearInterval(interval);
       setUploadProgress(100);
       
-      // Clear the interval
-      clearInterval(interval);
+      console.log('Document uploaded successfully');
       
-      // Let the parent component know that upload is complete
-      // Don't show toast here - the parent component (SmartClearance) will handle that
-      if (onUploadComplete) {
-        onUploadComplete();
-      }
+      // Delay the completion callback slightly to show 100% progress
+      setTimeout(() => {
+        if (onUploadComplete) {
+          onUploadComplete();
+        }
+      }, 500);
+      
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('Error uploading document. Please try again.');

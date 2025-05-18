@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -44,25 +43,18 @@ const SmartClearance = () => {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [fetchTrigger, setFetchTrigger] = useState(0); // Used to trigger document fetching
   
   // Constants
   const DOCUMENTS_PER_PAGE = 6;
   
   // Fetch documents
-  useEffect(() => {
-    fetchDocuments();
-  }, []);
-  
-  // Apply filtering when tab or search changes
-  useEffect(() => {
-    applyFilters();
-  }, [activeTab, documents, searchQuery]);
-  
-  // Function to fetch all documents
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
+    console.log('Fetching documents...');
     setIsLoading(true);
     try {
       const allDocs = await getAllDocuments();
+      console.log('Documents fetched successfully:', allDocs);
       setDocuments(allDocs);
     } catch (error) {
       console.error('Error fetching documents:', error);
@@ -70,9 +62,19 @@ const SmartClearance = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
   
-  // Apply filters based on active tab and search query
+  // Initial data fetch
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchTrigger, fetchDocuments]);
+  
+  // Apply filtering when tab or search changes
+  useEffect(() => {
+    applyFilters();
+  }, [activeTab, documents, searchQuery]);
+  
+  // Function to apply filters based on active tab and search query
   const applyFilters = () => {
     let filtered: Document[] = [];
     
@@ -91,6 +93,7 @@ const SmartClearance = () => {
         );
       }
       
+      console.log(`Applied filters. Results: ${filtered.length} documents`);
       setFilteredDocuments(filtered);
       setCurrentPage(1); // Reset to first page when filters change
     } catch (error) {
@@ -114,19 +117,11 @@ const SmartClearance = () => {
   const handleUploadComplete = () => {
     setIsUploadOpen(false);
     
-    // Fetch latest documents after a short delay to ensure the backend has processed the upload
-    setTimeout(() => {
-      fetchDocuments()
-        .then(() => {
-          // Only show success toast after documents are successfully fetched
-          toast.success('Document uploaded successfully!');
-        })
-        .catch(error => {
-          console.error('Error refreshing documents after upload:', error);
-          // Still show upload success, but note refresh issue
-          toast.success('Document uploaded successfully! Please refresh to see updates.');
-        });
-    }, 1000); // Increased delay to 1 second to allow for backend processing
+    console.log('Document upload completed. Refreshing document list...');
+    toast.success('Document uploaded successfully!');
+    
+    // Trigger a refetch by updating fetchTrigger
+    setFetchTrigger(prev => prev + 1);
   };
   
   // Handle view document details
@@ -144,7 +139,10 @@ const SmartClearance = () => {
   
   // Handle document update (refresh)
   const handleDocumentUpdate = () => {
-    fetchDocuments();
+    console.log('Document updated. Refreshing document list...');
+    // Trigger a refetch by updating fetchTrigger
+    setFetchTrigger(prev => prev + 1);
+    
     if (selectedDocument) {
       // Refresh the selected document details
       const updatedDoc = documents.find(doc => doc.id === selectedDocument.id);

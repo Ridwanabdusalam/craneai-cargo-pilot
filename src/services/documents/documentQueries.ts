@@ -7,6 +7,7 @@ import { formatDocumentFromSupabase } from './documentFormatters';
 // Get all documents
 export const getAllDocuments = async (): Promise<Document[]> => {
   try {
+    console.log('Fetching all documents');
     const { data: documents, error } = await supabase
       .from('documents')
       .select(`
@@ -24,13 +25,14 @@ export const getAllDocuments = async (): Promise<Document[]> => {
     }
     
     if (!documents) {
+      console.log('No documents found');
       return [];
     }
     
+    console.log(`Found ${documents.length} documents`, documents);
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error('Error fetching documents:', error);
-    // Don't show a toast here - let the calling component handle UI notifications
     return [];
   }
 };
@@ -38,6 +40,7 @@ export const getAllDocuments = async (): Promise<Document[]> => {
 // Get documents by status
 export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Document[]> => {
   try {
+    console.log(`Fetching documents with status: ${status}`);
     const { data: documents, error } = await supabase
       .from('documents')
       .select(`
@@ -56,13 +59,14 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
     }
     
     if (!documents) {
+      console.log(`No ${status} documents found`);
       return [];
     }
     
+    console.log(`Found ${documents.length} ${status} documents`);
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error(`Error fetching ${status} documents:`, error);
-    // Let the calling component handle UI notifications
     return [];
   }
 };
@@ -70,6 +74,7 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
 // Get document by ID
 export const getDocumentById = async (id: string): Promise<Document | null> => {
   try {
+    console.log(`Fetching document with ID: ${id}`);
     const { data: document, error } = await supabase
       .from('documents')
       .select(`
@@ -84,17 +89,17 @@ export const getDocumentById = async (id: string): Promise<Document | null> => {
       
     if (error) {
       if (error.code === 'PGRST116') {
-        // No rows returned - document not found
+        console.log(`Document with ID ${id} not found`);
         return null;
       }
       console.error('Error in getDocumentById:', error);
       throw error;
     }
     
+    console.log(`Found document: ${document.title}`);
     return formatDocumentFromSupabase(document);
   } catch (error) {
     console.error('Error fetching document details:', error);
-    // Let the calling component handle UI notifications
     return null;
   }
 };
@@ -104,6 +109,7 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
   if (!query) return getAllDocuments();
   
   try {
+    console.log(`Searching documents with query: ${query}`);
     const { data: documents, error } = await supabase
       .from('documents')
       .select(`
@@ -122,13 +128,14 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
     }
     
     if (!documents) {
+      console.log('No matching documents found');
       return [];
     }
     
+    console.log(`Found ${documents.length} matching documents`);
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error('Error searching documents:', error);
-    // Let the calling component handle UI notifications
     return [];
   }
 };
