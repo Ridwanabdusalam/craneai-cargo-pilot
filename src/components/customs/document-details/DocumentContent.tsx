@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,6 +14,7 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
   const tryParseRawText = () => {
     if (content?.raw_text) {
       try {
+        // If raw_text exists, attempt to parse it
         return JSON.parse(content.raw_text);
       } catch (e) {
         console.error('Failed to parse raw_text as JSON:', e);
@@ -47,22 +47,38 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
 
-  // If we have raw_text with parseable JSON but content wasn't properly parsed server-side
+  // Try to parse the raw_text if available
   const parsedRawText = tryParseRawText();
   
-  // Use the parsed raw_text if available or if main content is empty
-  const displayContent = (!content || Object.keys(content).length === 0 || 
-                         (Object.keys(content).length === 1 && content.raw_text)) ? 
-                         parsedRawText : content;
+  // Determine what content to display
+  // First try using the content object, if it's not empty and doesn't just contain raw_text
+  // If that's not available, use the parsed raw_text
+  let displayContent;
+  
+  if (content && Object.keys(content).length > 0) {
+    if (Object.keys(content).length === 1 && content.raw_text) {
+      // If content only has raw_text, use the parsed version
+      displayContent = parsedRawText;
+    } else {
+      // Otherwise use the content object directly
+      displayContent = content;
+    }
+  } else {
+    // If content is empty, try the parsed raw_text
+    displayContent = parsedRawText;
+  }
   
   // Check for empty content after trying all options
   if (!displayContent || Object.keys(displayContent).length === 0) {
     return (
       <div className="text-center p-8">
-        <p className="text-muted-foreground">Content extraction not completed yet.</p>
+        <p className="text-muted-foreground">No content could be extracted from this document.</p>
       </div>
     );
   }
+
+  // Log what we're displaying to help with debugging
+  console.log('Displaying document content:', displayContent);
 
   return (
     <div className="space-y-6">
