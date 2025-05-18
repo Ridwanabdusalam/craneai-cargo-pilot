@@ -28,10 +28,49 @@ function cleanJsonResponse(text) {
     cleaned = cleaned.substring(jsonStartIndex);
   }
   
+  // Find where the actual JSON object ends (right before any additional text)
+  const jsonEndIndex = findJsonEndIndex(cleaned);
+  if (jsonEndIndex > 0 && jsonEndIndex < cleaned.length - 1) {
+    cleaned = cleaned.substring(0, jsonEndIndex + 1);
+  }
+  
   // Trim any whitespace
   cleaned = cleaned.trim();
   
   return cleaned;
+}
+
+/**
+ * Find the end index of a JSON object in a string that might have additional text
+ */
+function findJsonEndIndex(jsonString) {
+  let braceCount = 0;
+  let inQuotes = false;
+  let escaped = false;
+
+  for (let i = 0; i < jsonString.length; i++) {
+    const char = jsonString[i];
+    
+    if (char === '"' && !escaped) {
+      inQuotes = !inQuotes;
+    } else if (char === '\\' && !escaped) {
+      escaped = true;
+      continue;
+    } else if (char === '{' && !inQuotes) {
+      braceCount++;
+    } else if (char === '}' && !inQuotes) {
+      braceCount--;
+      // Found the end of the JSON object
+      if (braceCount === 0) {
+        return i;
+      }
+    }
+    
+    escaped = false;
+  }
+  
+  // If no matching end brace was found, return the entire length
+  return jsonString.length - 1;
 }
 
 /**
@@ -101,11 +140,12 @@ async function extractDocumentContentWithTextAPI(fileUrl) {
             content: `You are a document content extractor simulator. You're given a PDF document URL: ${fileUrl}.
             Since we can't actually extract the content, create a plausible mock extraction result that would represent
             a logistics document like a bill of lading, invoice, or customs declaration. Format your response as valid JSON with 
-            fields like document_type, issuer, recipient, date, items, values, etc. Make it realistic but clearly indicate it's mock data.`
+            fields like document_type, issuer, recipient, date, items, values, etc. Make it realistic but clearly indicate it's mock data.
+            Return ONLY the JSON object with no additional text, comments or explanations.`
           },
           {
             role: "user",
-            content: "Extract the document content and return it as JSON"
+            content: "Extract the document content and return it as JSON only"
           }
         ],
         max_tokens: 4000,
@@ -122,6 +162,7 @@ async function extractDocumentContentWithTextAPI(fileUrl) {
     
     // Clean the response from any markdown formatting
     extractedContent = cleanJsonResponse(extractedContent);
+    console.log("Cleaned extracted content:", extractedContent.substring(0, 100) + "...");
     
     // Parse the extracted content as JSON
     return parseExtractedContent(extractedContent);
