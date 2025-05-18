@@ -2,6 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Document, DocumentStatus, ValidationResult, ValidationIssue } from '@/types/documents';
+import { Json } from '@/integrations/supabase/types';
 
 // Get all documents
 export const getAllDocuments = async (): Promise<Document[]> => {
@@ -252,9 +253,21 @@ export const fixDocumentIssues = async (id: string, corrections: Record<string, 
     
     // Apply corrections to content if we have content data
     if (contentData) {
-      // Fix: Cast to an object type before spreading
+      // Fix: Explicitly type the content and make sure the spread operation is compatible with Json type
       const currentContent = contentData.content as Record<string, unknown>;
-      const updatedContent = { ...currentContent, ...corrections };
+      
+      // Create a new object that will be compatible with the Json type
+      const updatedContent: Json = {};
+      
+      // First copy all properties from the current content
+      Object.entries(currentContent).forEach(([key, value]) => {
+        (updatedContent as any)[key] = value;
+      });
+      
+      // Then apply the corrections
+      Object.entries(corrections).forEach(([key, value]) => {
+        (updatedContent as any)[key] = value;
+      });
       
       // Update the content
       const { error: updateError } = await supabase
