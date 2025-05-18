@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { SendHorizontal, PaperclipIcon, Info, Bot } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // Added import for Avatar components
 import ChatMessage, { MessageType } from './ChatMessage';
 import { toast } from 'sonner';
 
