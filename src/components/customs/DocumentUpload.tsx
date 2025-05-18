@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -93,13 +92,13 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
     setUploading(true);
 
-    // Simulate progress updates
+    // Simulate progress updates for better UX
     const interval = setInterval(() => {
       setUploadProgress(prev => {
-        const next = prev + 20;
-        return next > 100 ? 100 : next;
+        const next = prev + 5;
+        return next > 95 ? 95 : next; // Only go up to 95%, final 5% when complete
       });
-    }, 500);
+    }, 300);
 
     try {
       // Call the document upload service

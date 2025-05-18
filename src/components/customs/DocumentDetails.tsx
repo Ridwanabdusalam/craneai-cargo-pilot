@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   Card, 
@@ -24,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { validateDocumentManually, fixDocumentIssues } from '@/services/documentService';
+import { validateDocumentManually, fixDocumentIssues, downloadDocument } from '@/services/documentService';
 import { toast } from 'sonner';
 import { Document, ValidationIssue } from '@/types/documents';
 
@@ -36,6 +35,7 @@ interface DocumentDetailsProps {
 
 const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onUpdate }) => {
   const [loading, setLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
   const getStatusColor = () => {
@@ -101,6 +101,24 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
       toast.error('Failed to fix document issues. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    setDownloadLoading(true);
+    try {
+      const downloadUrl = await downloadDocument(document.id);
+      if (downloadUrl) {
+        // Open the download URL in a new tab
+        window.open(downloadUrl, '_blank');
+      } else {
+        toast.error('Failed to generate download link');
+      }
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast.error('Failed to download the document');
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -250,9 +268,15 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
             </div>
             
             <div className="flex space-x-2">
-              <Button variant="outline" size="sm" className="flex items-center">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center"
+                onClick={handleDownload}
+                disabled={downloadLoading}
+              >
                 <Download className="mr-2 h-4 w-4" />
-                Download
+                {downloadLoading ? 'Processing...' : 'Download'}
               </Button>
               {document.status === 'rejected' && (
                 <Button 

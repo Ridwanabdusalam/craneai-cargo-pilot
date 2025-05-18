@@ -9,6 +9,177 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      context_sources: {
+        Row: {
+          content: string | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          name: string
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          source_type: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      document_content: {
+        Row: {
+          content: Json
+          created_at: string
+          document_id: string
+          id: string
+          raw_text: string | null
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          document_id: string
+          id?: string
+          raw_text?: string | null
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          document_id?: string
+          id?: string
+          raw_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_content_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_history: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          message: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          message?: string | null
+          status: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          message?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_history_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          flagged: boolean
+          id: string
+          last_updated: string
+          progress: number
+          status: string
+          storage_path: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          flagged?: boolean
+          id?: string
+          last_updated?: string
+          progress?: number
+          status: string
+          storage_path?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          flagged?: boolean
+          id?: string
+          last_updated?: string
+          progress?: number
+          status?: string
+          storage_path?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      knowledge_vectors: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: Json | null
+          id: string
+          metadata: Json | null
+          source_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: Json | null
+          id?: string
+          metadata?: Json | null
+          source_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: Json | null
+          id?: string
+          metadata?: Json | null
+          source_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_vectors_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "context_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -42,12 +213,138 @@ export type Database = {
         }
         Relationships: []
       }
+      validation_issues: {
+        Row: {
+          created_at: string
+          document_id: string
+          field: string
+          id: string
+          issue: string
+          severity: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          field: string
+          id?: string
+          issue: string
+          severity: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          field?: string
+          id?: string
+          issue?: string
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "validation_issues_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
