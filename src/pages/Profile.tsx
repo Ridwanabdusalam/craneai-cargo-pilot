@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -84,7 +83,7 @@ const ProfilePage = () => {
       toast({
         title: 'Profile updated',
         description: 'Your profile has been successfully updated.',
-        variant: 'success',
+        variant: 'default',
       });
     } catch (error) {
       console.error('Error updating profile:', error);
