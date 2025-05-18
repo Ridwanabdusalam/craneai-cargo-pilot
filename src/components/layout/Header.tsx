@@ -12,10 +12,14 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { ModeToggle } from '@/components/ui/mode-toggle';
-import { Bell, Settings, User, LogOut } from 'lucide-react';
+import { Bell, Menu, Settings, User, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-const Header = () => {
+interface HeaderProps {
+  toggleSidebar?: () => void;
+}
+
+const Header = ({ toggleSidebar }: HeaderProps) => {
   const { user, signOut } = useAuth();
 
   const getInitials = (name: string) => {
@@ -29,6 +33,11 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
+        {toggleSidebar && (
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mr-2 md:hidden">
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
         <div className="flex flex-1 items-center justify-end space-x-4">
           <nav className="flex items-center space-x-2">
             <Button variant="ghost" size="icon">

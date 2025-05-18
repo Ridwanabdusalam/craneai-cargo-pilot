@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           toast({
             title: "Signed in successfully",
             description: "Welcome back!",
-            variant: "success",
+            variant: "default",
           });
         }
         
@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast({
         title: "Account created",
         description: "Please check your email to verify your account.",
-        variant: "success",
+        variant: "default",
       });
     } catch (error: any) {
       toast({
