@@ -11,6 +11,19 @@ interface DocumentContentProps {
 }
 
 export const DocumentContent: React.FC<DocumentContentProps> = ({ content, status }) => {
+  // Helper function to try parsing raw_text if needed
+  const tryParseRawText = () => {
+    if (content?.raw_text) {
+      try {
+        return JSON.parse(content.raw_text);
+      } catch (e) {
+        console.error('Failed to parse raw_text as JSON:', e);
+        return null;
+      }
+    }
+    return null;
+  };
+  
   // Check for processing state
   if (status === 'processing') {
     return (
@@ -33,8 +46,16 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
 
-  // Check for empty content
-  if (!content || Object.keys(content).length === 0) {
+  // If we have raw_text with parseable JSON but content wasn't properly parsed server-side
+  const parsedRawText = tryParseRawText();
+  
+  // Use the parsed raw_text if available, otherwise use the content object
+  const displayContent = (!content || Object.keys(content).length === 0 || 
+                         (Object.keys(content).length === 1 && content.raw_text)) ? 
+                         parsedRawText : content;
+  
+  // Check for empty content after trying to use raw_text
+  if (!displayContent || Object.keys(displayContent).length === 0) {
     return (
       <div className="text-center p-8">
         <p className="text-muted-foreground">Content extraction not completed yet.</p>
@@ -44,7 +65,7 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
 
   return (
     <div className="space-y-6">
-      {Object.entries(content).map(([key, value]) => {
+      {Object.entries(displayContent).map(([key, value]) => {
         if (key === 'error' || key === 'raw_text') {
           return null; // Skip error and raw_text fields
         }
