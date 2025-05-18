@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Document, DocumentStatus } from '@/types/documents';
 import { formatDocumentFromSupabase } from './documentFormatters';
 
-// Get all documents
+// Get all documents with better error handling
 export const getAllDocuments = async (): Promise<Document[]> => {
   try {
     console.log('Fetching all documents');
@@ -21,23 +21,25 @@ export const getAllDocuments = async (): Promise<Document[]> => {
       
     if (error) {
       console.error('Error in getAllDocuments:', error);
-      throw error;
+      toast.error('Failed to load documents');
+      return []; // Return empty array instead of throwing to prevent UI issues
     }
     
-    if (!documents) {
+    if (!documents || documents.length === 0) {
       console.log('No documents found');
       return [];
     }
     
-    console.log(`Found ${documents.length} documents`, documents);
+    console.log(`Found ${documents.length} documents`);
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error('Error fetching documents:', error);
-    return [];
+    toast.error('Failed to load documents');
+    return []; // Return empty array to prevent UI issues
   }
 };
 
-// Get documents by status
+// Get documents by status with better error handling
 export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Document[]> => {
   try {
     console.log(`Fetching documents with status: ${status}`);
@@ -55,10 +57,11 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
       
     if (error) {
       console.error(`Error in getDocumentsByStatus(${status}):`, error);
-      throw error;
+      toast.error(`Failed to load ${status} documents`);
+      return []; // Return empty array instead of throwing
     }
     
-    if (!documents) {
+    if (!documents || documents.length === 0) {
       console.log(`No ${status} documents found`);
       return [];
     }
@@ -67,11 +70,12 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error(`Error fetching ${status} documents:`, error);
-    return [];
+    toast.error(`Failed to load ${status} documents`);
+    return []; // Return empty array
   }
 };
 
-// Get document by ID
+// Get document by ID with better error handling
 export const getDocumentById = async (id: string): Promise<Document | null> => {
   try {
     console.log(`Fetching document with ID: ${id}`);
@@ -85,26 +89,29 @@ export const getDocumentById = async (id: string): Promise<Document | null> => {
         verified_by:profiles(username, full_name)
       `)
       .eq('id', id)
-      .single();
+      .maybeSingle(); // Using maybeSingle instead of single to avoid errors
       
     if (error) {
-      if (error.code === 'PGRST116') {
-        console.log(`Document with ID ${id} not found`);
-        return null;
-      }
       console.error('Error in getDocumentById:', error);
-      throw error;
+      toast.error('Failed to load document details');
+      return null;
+    }
+    
+    if (!document) {
+      console.log(`Document with ID ${id} not found`);
+      return null;
     }
     
     console.log(`Found document: ${document.title}`);
     return formatDocumentFromSupabase(document);
   } catch (error) {
     console.error('Error fetching document details:', error);
+    toast.error('Failed to load document details');
     return null;
   }
 };
 
-// Search documents
+// Search documents with better error handling
 export const searchDocuments = async (query: string): Promise<Document[]> => {
   if (!query) return getAllDocuments();
   
@@ -124,10 +131,11 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
       
     if (error) {
       console.error('Error in searchDocuments:', error);
-      throw error;
+      toast.error('Search failed');
+      return []; // Return empty array instead of throwing
     }
     
-    if (!documents) {
+    if (!documents || documents.length === 0) {
       console.log('No matching documents found');
       return [];
     }
@@ -136,6 +144,7 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error('Error searching documents:', error);
-    return [];
+    toast.error('Search failed');
+    return []; // Return empty array
   }
 };

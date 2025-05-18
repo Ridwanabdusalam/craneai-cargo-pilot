@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ValidationResult } from '@/types/documents';
@@ -17,7 +18,7 @@ export const uploadDocument = async (file: File, title: string): Promise<any> =>
       
     if (uploadError) {
       console.error('Error uploading file to storage:', uploadError);
-      throw uploadError;
+      throw new Error(`Storage upload failed: ${uploadError.message}`);
     }
     
     console.log('File uploaded to storage successfully');
@@ -40,10 +41,14 @@ export const uploadDocument = async (file: File, title: string): Promise<any> =>
       
     if (documentError) {
       console.error('Error creating document record:', documentError);
-      throw documentError;
+      // Try to clean up the uploaded file
+      await supabase.storage.from('documents').remove([filePath]);
+      throw new Error(`Database insert failed: ${documentError.message}`);
     }
     
     if (!document) {
+      // Try to clean up the uploaded file
+      await supabase.storage.from('documents').remove([filePath]);
       throw new Error('Document created but no data returned');
     }
     

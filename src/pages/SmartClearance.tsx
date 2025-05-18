@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
@@ -44,73 +45,77 @@ const SmartClearance = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [fetchTrigger, setFetchTrigger] = useState(0); // Used to trigger document fetching
+  const [fetchError, setFetchError] = useState<string | null>(null);
   
   // Constants
   const DOCUMENTS_PER_PAGE = 6;
   
-  // Fetch documents
+  // Fetch documents with enhanced error handling
   const fetchDocuments = useCallback(async () => {
     console.log('Fetching documents...');
     setIsLoading(true);
+    setFetchError(null);
+    
     try {
-      const allDocs = await getAllDocuments();
-      console.log('Documents fetched successfully:', allDocs);
-      setDocuments(allDocs);
+      let docsResult: Document[] = [];
+      if (activeTab === 'all') {
+        docsResult = await getAllDocuments();
+      } else {
+        docsResult = await getDocumentsByStatus(activeTab as DocumentStatus);
+      }
+      
+      console.log('Documents fetched successfully:', docsResult);
+      setDocuments(docsResult);
+      
+      // Apply search filter if needed
+      if (searchQuery) {
+        const filtered = docsResult.filter(doc => 
+          doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          doc.type.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        setFilteredDocuments(filtered);
+      } else {
+        setFilteredDocuments(docsResult);
+      }
     } catch (error) {
       console.error('Error fetching documents:', error);
+      setFetchError('Failed to load documents. Please try again.');
       toast.error('Failed to load documents');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [activeTab, searchQuery]);
   
   // Initial data fetch
   useEffect(() => {
     fetchDocuments();
-  }, [fetchTrigger, fetchDocuments]);
+  }, [fetchTrigger, activeTab, fetchDocuments]);
   
-  // Apply filtering when tab or search changes
+  // Apply search filtering when search changes
   useEffect(() => {
-    applyFilters();
-  }, [activeTab, documents, searchQuery]);
-  
-  // Function to apply filters based on active tab and search query
-  const applyFilters = () => {
-    let filtered: Document[] = [];
-    
-    try {
-      if (activeTab === 'all') {
-        filtered = documents;
-      } else {
-        filtered = documents.filter(doc => doc.status === activeTab);
-      }
-      
-      // Apply search if query exists
+    if (documents.length > 0) {
       if (searchQuery) {
-        filtered = filtered.filter(doc => 
+        const filtered = documents.filter(doc => 
           doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           doc.type.toLowerCase().includes(searchQuery.toLowerCase())
         );
+        setFilteredDocuments(filtered);
+      } else {
+        setFilteredDocuments(documents);
       }
-      
-      console.log(`Applied filters. Results: ${filtered.length} documents`);
-      setFilteredDocuments(filtered);
-      setCurrentPage(1); // Reset to first page when filters change
-    } catch (error) {
-      console.error('Error applying filters:', error);
-      toast.error('Failed to filter documents');
     }
-  };
+  }, [searchQuery, documents]);
   
   // Handle search
   const handleSearch = (query: string) => {
     setSearchQuery(query);
+    setCurrentPage(1); // Reset to first page when search changes
   };
   
   // Handle filter change
   const handleFilterChange = (filters: IDocumentFilters) => {
-    // Apply additional filters here
-    applyFilters();
+    // Apply additional filters here if needed
+    // For now, we're just using the activeTab for filtering
   };
   
   // Handle document upload
@@ -118,7 +123,7 @@ const SmartClearance = () => {
     setIsUploadOpen(false);
     
     console.log('Document upload completed. Refreshing document list...');
-    toast.success('Document uploaded successfully!');
+    toast.success('Document uploaded successfully');
     
     // Trigger a refetch by updating fetchTrigger
     setFetchTrigger(prev => prev + 1);
@@ -143,13 +148,8 @@ const SmartClearance = () => {
     // Trigger a refetch by updating fetchTrigger
     setFetchTrigger(prev => prev + 1);
     
-    if (selectedDocument) {
-      // Refresh the selected document details
-      const updatedDoc = documents.find(doc => doc.id === selectedDocument.id);
-      if (updatedDoc) {
-        setSelectedDocument(updatedDoc);
-      }
-    }
+    // Close the document details view
+    setSelectedDocument(null);
   };
   
   // Calculate counts by status
@@ -179,6 +179,11 @@ const SmartClearance = () => {
   
   const handleNextPage = () => {
     setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+
+  // Handle retry if fetch failed
+  const handleRetry = () => {
+    setFetchTrigger(prev => prev + 1);
   };
 
   // If a document is selected, show its details
@@ -299,6 +304,17 @@ const SmartClearance = () => {
                     <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-2"></div>
                     <p className="text-muted-foreground">Loading documents...</p>
                   </div>
+                </div>
+              ) : fetchError ? (
+                <div className="flex flex-col items-center justify-center h-52 text-center">
+                  <FileText size={48} className="text-muted-foreground opacity-20 mb-4" />
+                  <p className="text-destructive mb-2">{fetchError}</p>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleRetry}
+                  >
+                    Retry
+                  </Button>
                 </div>
               ) : paginatedDocuments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-52 text-center">

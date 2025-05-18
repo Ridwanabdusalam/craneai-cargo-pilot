@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from 'sonner';
 import { Progress } from "@/components/ui/progress";
-import { uploadDocument } from '@/services/documentService';
+import { uploadDocument } from '@/services/documents/documentMutations';
 
 interface DocumentUploadProps {
   onUploadComplete?: () => void;
@@ -93,28 +92,30 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
     setUploading(true);
 
-    // Use a more realistic progress simulation
+    // Simulate progress more realistically
     const interval = setInterval(() => {
       setUploadProgress(prev => {
-        // More gradual progress that leaves room for completion
-        if (prev < 60) return prev + 10;
-        if (prev < 85) return prev + 3;
+        if (prev < 60) return prev + 5;
+        if (prev < 85) return prev + 2;
         if (prev < 95) return prev + 1;
-        return 95; // Cap at 95% until complete
+        return 95;
       });
-    }, 400);
+    }, 300);
 
     try {
       console.log('Starting document upload...', {file: file.name, title});
       
-      // Call the document upload service
-      await uploadDocument(file, title);
+      // Call the direct document mutation service instead of through documentService
+      const result = await uploadDocument(file, title);
       
       // Ensure progress reaches 100%
       clearInterval(interval);
       setUploadProgress(100);
       
-      console.log('Document uploaded successfully');
+      console.log('Document uploaded successfully:', result);
+      
+      // Only show one success message
+      toast.success('Document uploaded successfully');
       
       // Delay the completion callback slightly to show 100% progress
       setTimeout(() => {
