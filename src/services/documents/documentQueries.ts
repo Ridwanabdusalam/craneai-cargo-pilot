@@ -31,7 +31,7 @@ export const getAllDocuments = async (): Promise<Document[]> => {
       return [];
     }
     
-    console.log(`Found ${documents.length} documents`);
+    console.log(`Found ${documents.length} documents:`, documents);
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error('Error fetching documents:', error);
@@ -66,7 +66,7 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
       return [];
     }
     
-    console.log(`Found ${documents.length} ${status} documents`);
+    console.log(`Found ${documents.length} ${status} documents:`, documents);
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error(`Error fetching ${status} documents:`, error);
@@ -102,7 +102,7 @@ export const getDocumentById = async (id: string): Promise<Document | null> => {
       return null;
     }
     
-    console.log(`Found document: ${document.title}`);
+    console.log(`Found document: ${document.title}`, document);
     return formatDocumentFromSupabase(document);
   } catch (error) {
     console.error('Error fetching document details:', error);
@@ -140,7 +140,7 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
       return [];
     }
     
-    console.log(`Found ${documents.length} matching documents`);
+    console.log(`Found ${documents.length} matching documents:`, documents);
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error('Error searching documents:', error);

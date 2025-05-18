@@ -136,7 +136,7 @@ const SmartClearance = () => {
     // Trigger a refetch by updating fetchTrigger with a delay to ensure database updates are complete
     setTimeout(() => {
       setFetchTrigger(prev => prev + 1);
-    }, 1500); // Increased delay to ensure all database operations complete
+    }, 2000); // Increased delay to ensure all database operations complete
   };
   
   // Handle view document details
