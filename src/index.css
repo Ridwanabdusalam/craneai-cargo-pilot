@@ -7,23 +7,23 @@
 
 @layer base {
   :root {
-    --background: 210 50% 98%;
-    --foreground: 215 25% 15%;
+    --background: 210 50% 99%;
+    --foreground: 215 25% 25%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
+    --card-foreground: 215 25% 25%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
+    --popover-foreground: 215 25% 25%;
 
-    --primary: 212 58% 16%;
+    --primary: 212 58% 26%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 150 50% 36%;
+    --secondary: 150 50% 46%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 20% 94%;
-    --muted-foreground: 215 25% 40%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 25% 45%;
 
     --accent: 0 74% 70%;
     --accent-foreground: 0 0% 100%;
@@ -31,39 +31,39 @@
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 215 20% 85%;
-    --input: 215 20% 85%;
-    --ring: 212 58% 16%;
+    --border: 215 20% 92%;
+    --input: 215 20% 92%;
+    --ring: 212 58% 36%;
 
-    --radius: 0.5rem;
+    --radius: 0.375rem;
 
-    --sidebar-background: 212 58% 16%;
+    --sidebar-background: 212 58% 26%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 150 50% 36%;
+    --sidebar-primary: 150 50% 46%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 212 48% 24%;
+    --sidebar-accent: 212 48% 34%;
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 212 48% 24%;
-    --sidebar-ring: 150 50% 36%;
+    --sidebar-border: 212 48% 34%;
+    --sidebar-ring: 150 50% 46%;
   }
 
   .dark {
-    --background: 215 33% 10%;
+    --background: 215 33% 12%;
     --foreground: 210 20% 98%;
 
-    --card: 215 30% 15%;
+    --card: 215 30% 17%;
     --card-foreground: 210 20% 98%;
 
-    --popover: 215 30% 15%;
+    --popover: 215 30% 17%;
     --popover-foreground: 210 20% 98%;
 
-    --primary: 212 58% 46%;
+    --primary: 212 58% 56%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 150 50% 36%;
+    --secondary: 150 50% 46%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 215 30% 20%;
+    --muted: 215 30% 22%;
     --muted-foreground: 210 20% 80%;
 
     --accent: 0 74% 70%;
@@ -72,18 +72,18 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 20% 98%;
 
-    --border: 215 30% 25%;
-    --input: 215 30% 25%;
-    --ring: 212 58% 46%;
+    --border: 215 30% 27%;
+    --input: 215 30% 27%;
+    --ring: 212 58% 56%;
     
-    --sidebar-background: 215 35% 12%;
+    --sidebar-background: 215 35% 14%;
     --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 150 50% 36%;
+    --sidebar-primary: 150 50% 46%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 30% 20%;
+    --sidebar-accent: 215 30% 22%;
     --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 215 30% 20%;
-    --sidebar-ring: 150 50% 36%;
+    --sidebar-border: 215 30% 22%;
+    --sidebar-ring: 150 50% 46%;
   }
 }
 
@@ -94,12 +94,14 @@
 
   body {
     @apply bg-background text-foreground font-sans;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+    -webkit-font-smoothing: antialiased;
   }
 }
 
 @layer components {
   .crane-card {
-    @apply bg-white rounded-lg shadow-md border border-border hover:shadow-lg transition-shadow duration-300;
+    @apply bg-white rounded-md shadow-sm border border-border hover:shadow-md transition-shadow duration-300;
   }
 
   .crane-container {
@@ -107,26 +109,26 @@
   }
 
   .crane-section {
-    @apply mb-8;
+    @apply mb-6;
   }
 
   .crane-heading {
-    @apply text-2xl font-bold text-crane-blue mb-4;
+    @apply text-xl font-medium text-crane-blue mb-3;
   }
 
   .crane-subheading {
-    @apply text-xl font-semibold text-crane-teal mb-3;
+    @apply text-lg font-medium text-crane-teal mb-2;
   }
   
   .crane-button-primary {
-    @apply bg-crane-blue text-white hover:bg-opacity-90 px-4 py-2 rounded-md font-medium transition-colors;
+    @apply bg-crane-blue text-white hover:bg-opacity-90 px-3 py-1.5 rounded font-medium transition-colors;
   }
   
   .crane-button-secondary {
-    @apply bg-crane-teal text-white hover:bg-opacity-90 px-4 py-2 rounded-md font-medium transition-colors;
+    @apply bg-crane-teal text-white hover:bg-opacity-90 px-3 py-1.5 rounded font-medium transition-colors;
   }
   
   .crane-button-accent {
-    @apply bg-crane-coral text-white hover:bg-opacity-90 px-4 py-2 rounded-md font-medium transition-colors;
+    @apply bg-crane-coral text-white hover:bg-opacity-90 px-3 py-1.5 rounded font-medium transition-colors;
   }
 }

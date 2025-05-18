@@ -64,17 +64,23 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
 				crane: {
-					blue: "#0A2647",
-					teal: "#2E8B57",
-					coral: "#FF6B6B",
-					lightblue: "#7AB8F5",
-					gray: "#F0F4F8"
+					blue: "#1976D2",
+					teal: "#26A69A",
+					coral: "#FF7043",
+					lightblue: "#90CAF9",
+					gray: "#F5F7FA"
 				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
-				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				md: 'calc(var(--radius) - 1px)',
+				sm: 'calc(var(--radius) - 2px)'
+			},
+			boxShadow: {
+				sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+				DEFAULT: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+				md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+				lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
 			},
 			keyframes: {
 				'accordion-down': {
@@ -115,6 +121,20 @@ export default {
 			},
 			fontFamily: {
 				sans: ['Inter', 'sans-serif']
+			},
+			fontSize: {
+				xs: ['0.75rem', { lineHeight: '1rem' }],
+				sm: ['0.875rem', { lineHeight: '1.25rem' }],
+				base: ['0.9375rem', { lineHeight: '1.5rem' }],
+				lg: ['1.0625rem', { lineHeight: '1.75rem' }],
+				xl: ['1.125rem', { lineHeight: '1.75rem' }],
+				'2xl': ['1.25rem', { lineHeight: '2rem' }],
+			},
+			fontWeight: {
+				normal: '400',
+				medium: '500',
+				semibold: '600',
+				bold: '700',
 			}
 		}
 	},
