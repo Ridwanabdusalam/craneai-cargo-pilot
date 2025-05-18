@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
@@ -49,14 +48,13 @@ const SmartClearance = () => {
   const [fetchTrigger, setFetchTrigger] = useState(0); // Used to trigger document fetching
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [creatingDocs, setCreatingDocs] = useState(false);
-  const { user } = useAuth(); // Get authenticated user
   
   // Constants
   const DOCUMENTS_PER_PAGE = 6;
   
   // Fetch documents with enhanced error handling
   const fetchDocuments = useCallback(async () => {
-    console.log('Fetching documents...', { activeTab, authenticated: !!user, fetchTrigger });
+    console.log('Fetching documents...', { activeTab, fetchTrigger });
     setIsLoading(true);
     setFetchError(null);
     
@@ -66,11 +64,6 @@ const SmartClearance = () => {
         docsResult = await getAllDocuments();
       } else {
         docsResult = await getDocumentsByStatus(activeTab as DocumentStatus);
-      }
-      
-      // Only show toast on success if there was a previous error
-      if (fetchError) {
-        toast.success('Documents loaded successfully');
       }
       
       console.log('Documents fetched successfully:', docsResult);
@@ -86,18 +79,23 @@ const SmartClearance = () => {
       } else {
         setFilteredDocuments(docsResult);
       }
+      
+      // Only show toast on success if there was a previous error
+      if (fetchError) {
+        toast.success('Documents loaded successfully');
+      }
     } catch (error) {
       console.error('Error fetching documents:', error);
       setFetchError('Failed to load documents. Please try again.');
-      // Only show toast once, not in the service and here
       toast.error('Failed to load documents');
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, searchQuery, fetchError, user, fetchTrigger]); 
+  }, [activeTab, searchQuery, fetchError, fetchTrigger]); 
   
   // Initial data fetch
   useEffect(() => {
+    console.log('Initial document fetch triggered', { fetchTrigger });
     fetchDocuments();
   }, [fetchTrigger, activeTab, fetchDocuments]);
   
@@ -138,19 +136,23 @@ const SmartClearance = () => {
     // Trigger a refetch by updating fetchTrigger with a delay to ensure database updates are complete
     setTimeout(() => {
       setFetchTrigger(prev => prev + 1);
-    }, 2000); // Increased delay to ensure all database operations complete
+    }, 3000); // Increased delay to ensure all database operations complete
   };
   
   // Handle creating sample documents
   const handleCreateSampleDocs = async () => {
     try {
       setCreatingDocs(true);
+      toast.info('Creating sample documents...');
+      
       await createSampleDocuments();
       toast.success('Sample documents created successfully');
+      
       // Trigger a refetch with delay to ensure DB operations complete
       setTimeout(() => {
+        console.log('Triggering document refresh after sample creation');
         setFetchTrigger(prev => prev + 1);
-      }, 2000);
+      }, 3000);
     } catch (error) {
       toast.error('Failed to create sample documents');
       console.error('Error creating sample documents:', error);
@@ -213,8 +215,24 @@ const SmartClearance = () => {
 
   // Handle retry if fetch failed
   const handleRetry = () => {
+    console.log('Retrying document fetch...');
     setFetchTrigger(prev => prev + 1);
   };
+
+  // Force fetch documents on first render
+  useEffect(() => {
+    // Force a document fetch on component mount
+    console.log('SmartClearance component mounted - forcing initial document fetch');
+    setFetchTrigger(prev => prev + 1);
+    
+    // Set up a periodic refresh every 30 seconds to ensure documents are fresh
+    const refreshInterval = setInterval(() => {
+      console.log('Periodic document refresh triggered');
+      setFetchTrigger(prev => prev + 1);
+    }, 30000);
+    
+    return () => clearInterval(refreshInterval);
+  }, []);
 
   // If a document is selected, show its details
   if (selectedDocument) {
@@ -226,6 +244,14 @@ const SmartClearance = () => {
       />
     );
   }
+  
+  console.log('Rendering SmartClearance with:', { 
+    documentsCount: documents.length, 
+    filteredCount: filteredDocuments.length,
+    paginatedCount: paginatedDocuments.length,
+    isLoading, 
+    fetchError 
+  });
   
   return (
     <div className="space-y-6">

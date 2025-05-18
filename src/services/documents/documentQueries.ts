@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Document, DocumentStatus } from '@/types/documents';
@@ -9,39 +8,45 @@ export const getAllDocuments = async (): Promise<Document[]> => {
   try {
     console.log('Fetching all documents');
     
-    // Try/catch for each operation to provide detailed error information
-    try {
-      // Check if documents table exists by querying it directly
-      const { data: documents, error } = await supabase
-        .from('documents')
-        .select(`
-          *,
-          validation_issues (*),
-          validation_checks (*),
-          document_content (content, raw_text),
-          verified_by:profiles(username, full_name)
-        `)
-        .order('last_updated', { ascending: false });
-        
-      if (error) {
-        console.error('Error in getAllDocuments:', error);
-        throw error; // Throw the error to be caught by the try-catch
-      }
+    // Check if the table exists or has been created by querying it directly
+    const { data: tableCheck, error: tableError } = await supabase
+      .from('documents')
+      .select('count')
+      .limit(1);
       
-      if (!documents || documents.length === 0) {
-        console.log('No documents found in the database');
-        return [];
-      }
-      
-      console.log(`Successfully fetched ${documents.length} documents:`, documents);
-      return documents.map(doc => formatDocumentFromSupabase(doc));
-    } catch (innerError) {
-      console.error('Inner error in getAllDocuments:', innerError);
-      throw innerError;
+    if (tableError) {
+      console.error('Error checking documents table:', tableError);
+      return [];
     }
+    
+    console.log('Documents table check:', tableCheck);
+    
+    // Get all documents with full relations
+    const { data: documents, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        validation_issues (*),
+        validation_checks (*),
+        document_content (content, raw_text),
+        verified_by:profiles(username, full_name)
+      `)
+      .order('last_updated', { ascending: false });
+      
+    if (error) {
+      console.error('Error in getAllDocuments:', error);
+      return [];
+    }
+    
+    if (!documents || documents.length === 0) {
+      console.log('No documents found in the database');
+      return [];
+    }
+    
+    console.log(`Successfully fetched ${documents.length} documents:`, documents);
+    return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
-    console.error('Outer error fetching documents:', error);
-    // No toast here, let the component handle the error display
+    console.error('Error fetching documents:', error);
     return []; // Return empty array to prevent UI issues
   }
 };
@@ -65,7 +70,7 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
       
     if (error) {
       console.error(`Error in getDocumentsByStatus(${status}):`, error);
-      throw error;
+      return [];
     }
     
     if (!documents || documents.length === 0) {
@@ -157,7 +162,7 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
   }
 };
 
-// Create sample documents for testing
+// Create sample documents for testing with more robust implementation
 export const createSampleDocuments = async (): Promise<void> => {
   try {
     console.log('Creating sample documents for testing');
@@ -208,19 +213,24 @@ export const createSampleDocuments = async (): Promise<void> => {
           break;
       }
       
+      // Create a unique title with timestamp to avoid duplicates
+      const uniqueId = Date.now() + i;
+      
       // Create document record
       const documentData = {
-        title: `Sample ${documentTypes[i]} #${Math.floor(Math.random() * 1000)}`,
+        title: `Sample ${documentTypes[i]} #${Math.floor(Math.random() * 1000)}-${uniqueId}`,
         type: documentTypes[i],
         status: randomStatus,
         progress: progress,
         flagged: flagged,
-        storage_path: `sample_${i}_${Date.now()}.pdf`,
+        storage_path: `sample_${i}_${uniqueId}.pdf`,
         last_updated: new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)).toISOString() // Random date in the last week
       };
       
       sampleDocuments.push(documentData);
     }
+    
+    console.log('Attempting to insert sample documents:', sampleDocuments);
     
     // Insert the sample documents in batch
     const { data, error } = await supabase
@@ -233,10 +243,10 @@ export const createSampleDocuments = async (): Promise<void> => {
       throw error;
     }
     
-    console.log(`Successfully created ${sampleDocuments.length} sample documents:`, data);
+    console.log(`Successfully created ${data ? data.length : 0} sample documents:`, data);
     
     // Create document content for each sample document
-    if (data) {
+    if (data && data.length > 0) {
       const contentPromises = data.map(doc => {
         const sampleContent: Record<string, any> = {};
         
@@ -274,8 +284,14 @@ export const createSampleDocuments = async (): Promise<void> => {
           });
       });
       
-      await Promise.all(contentPromises);
-      console.log('Created sample document content for all documents');
+      try {
+        await Promise.all(contentPromises);
+        console.log('Created sample document content for all documents');
+      } catch (contentError) {
+        console.error('Error creating document content:', contentError);
+      }
+    } else {
+      console.warn('No document data returned after insertion');
     }
     
     return Promise.resolve();
