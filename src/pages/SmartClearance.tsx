@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
@@ -32,6 +33,7 @@ import {
   searchDocuments
 } from '@/services/documentService';
 import { Document, DocumentStatus, DocumentFilters as IDocumentFilters } from '@/types/documents';
+import { useAuth } from '@/context/AuthContext';
 
 const SmartClearance = () => {
   // State
@@ -45,13 +47,14 @@ const SmartClearance = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [fetchTrigger, setFetchTrigger] = useState(0); // Used to trigger document fetching
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const { user } = useAuth(); // Get authenticated user
   
   // Constants
   const DOCUMENTS_PER_PAGE = 6;
   
   // Fetch documents with enhanced error handling
   const fetchDocuments = useCallback(async () => {
-    console.log('Fetching documents...');
+    console.log('Fetching documents...', { activeTab, authenticated: !!user });
     setIsLoading(true);
     setFetchError(null);
     
@@ -89,7 +92,7 @@ const SmartClearance = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, searchQuery, fetchError]); 
+  }, [activeTab, searchQuery, fetchError, user]); 
   
   // Initial data fetch
   useEffect(() => {
@@ -133,7 +136,7 @@ const SmartClearance = () => {
     // Trigger a refetch by updating fetchTrigger with a delay to ensure database updates are complete
     setTimeout(() => {
       setFetchTrigger(prev => prev + 1);
-    }, 1000); // Increased delay to ensure all database operations complete
+    }, 1500); // Increased delay to ensure all database operations complete
   };
   
   // Handle view document details
