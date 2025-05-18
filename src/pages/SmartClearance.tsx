@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
@@ -34,8 +35,13 @@ import {
 } from '@/services/documentService';
 import { Document, DocumentStatus, DocumentFilters as IDocumentFilters } from '@/types/documents';
 import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const SmartClearance = () => {
+  // Navigation and auth
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
   // State
   const [documents, setDocuments] = useState<Document[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([]);
@@ -135,8 +141,9 @@ const SmartClearance = () => {
     
     // Trigger a refetch by updating fetchTrigger with a delay to ensure database updates are complete
     setTimeout(() => {
+      console.log('Triggering fetch after document upload');
       setFetchTrigger(prev => prev + 1);
-    }, 3000); // Increased delay to ensure all database operations complete
+    }, 2000);
   };
   
   // Handle creating sample documents
@@ -152,7 +159,7 @@ const SmartClearance = () => {
       setTimeout(() => {
         console.log('Triggering document refresh after sample creation');
         setFetchTrigger(prev => prev + 1);
-      }, 3000);
+      }, 2000);
     } catch (error) {
       toast.error('Failed to create sample documents');
       console.error('Error creating sample documents:', error);
@@ -219,20 +226,29 @@ const SmartClearance = () => {
     setFetchTrigger(prev => prev + 1);
   };
 
-  // Force fetch documents on first render
+  // Force an initial fetch on component mount and add periodic refresh
   useEffect(() => {
-    // Force a document fetch on component mount
+    // Force first fetch
     console.log('SmartClearance component mounted - forcing initial document fetch');
-    setFetchTrigger(prev => prev + 1);
+    fetchDocuments();
     
-    // Set up a periodic refresh every 30 seconds to ensure documents are fresh
+    // Set up a periodic refresh every 30 seconds
     const refreshInterval = setInterval(() => {
       console.log('Periodic document refresh triggered');
-      setFetchTrigger(prev => prev + 1);
+      fetchDocuments();
     }, 30000);
     
     return () => clearInterval(refreshInterval);
   }, []);
+
+  // Redirect to the clearance page if we're on the root route
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path === '/') {
+      console.log('Redirecting from root to /clearance');
+      navigate('/clearance');
+    }
+  }, [navigate]);
 
   // If a document is selected, show its details
   if (selectedDocument) {
