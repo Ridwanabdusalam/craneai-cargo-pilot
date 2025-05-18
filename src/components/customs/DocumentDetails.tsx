@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   Card, 
@@ -16,13 +17,15 @@ import {
   FileX, 
   ArrowLeft, 
   Download,
-  Search
+  Search,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { validateDocumentManually, fixDocumentIssues, downloadDocument } from '@/services/documentService';
 import { toast } from 'sonner';
 import { Document, ValidationIssue } from '@/types/documents';
@@ -123,6 +126,29 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
   };
 
   const renderContent = () => {
+    // Check for processing state
+    if (document.status === 'processing') {
+      return (
+        <div className="text-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Document content is being processed...</p>
+        </div>
+      );
+    }
+    
+    // Check for error state
+    if (document.content && document.content.error) {
+      return (
+        <Alert variant="destructive" className="my-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {document.content.error}
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    // Check for empty content
     if (Object.keys(document.content).length === 0) {
       return (
         <div className="text-center p-8">
@@ -134,6 +160,10 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
     return (
       <div className="space-y-6">
         {Object.entries(document.content).map(([key, value]) => {
+          if (key === 'error' || key === 'raw_text') {
+            return null; // Skip error and raw_text fields
+          }
+          
           if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
             return (
               <div key={key} className="border rounded-md p-4">

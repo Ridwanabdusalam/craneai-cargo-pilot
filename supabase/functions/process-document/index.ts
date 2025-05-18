@@ -12,6 +12,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to clean OpenAI response from markdown formatting
+function cleanJsonResponse(text) {
+  // Remove markdown code blocks if present
+  let cleaned = text.replace(/```json\s*/g, "").replace(/```\s*$/g, "");
+  
+  // Also handle cases where there's no explicit json tag but still has backticks
+  cleaned = cleaned.replace(/```\s*/g, "");
+  
+  // Trim any whitespace
+  cleaned = cleaned.trim();
+  
+  return cleaned;
+}
+
 // Helper to extract text from a PDF document using OpenAI
 async function extractDocumentContent(fileUrl: string, documentType: string) {
   console.log("Extracting document content from:", fileUrl);
@@ -31,6 +45,7 @@ async function extractDocumentContent(fileUrl: string, documentType: string) {
             content: `You are a highly accurate document parsing specialist that extracts structured information from logistics documents. 
             Extract all relevant fields and values from the provided document URL. 
             Format your response as a valid JSON object with fields organized by category. 
+            DO NOT include markdown formatting or code blocks in your response, return ONLY raw JSON.
             For documents like commercial invoices, extract invoice number, dates, company details, amounts, line items.
             For bills of lading, extract vessel details, container numbers, ports, cargo descriptions.
             For certificates, extract certificate numbers, issuers, validity periods, standards referenced.`
@@ -50,15 +65,23 @@ async function extractDocumentContent(fileUrl: string, documentType: string) {
     }
     
     const data = await response.json();
-    const extractedContent = data.choices[0].message.content;
+    let extractedContent = data.choices[0].message.content;
     
-    // Parse the extracted content as JSON if possible
+    // Clean the response from any markdown formatting
+    extractedContent = cleanJsonResponse(extractedContent);
+    
+    // Parse the extracted content as JSON
     try {
       return JSON.parse(extractedContent);
     } catch (parseError) {
       console.error("Failed to parse extracted content as JSON:", parseError);
-      // If parsing fails, return the raw text
-      return { raw_text: extractedContent };
+      console.log("Raw content:", extractedContent);
+      
+      // If URL access is restricted, return a placeholder with an error message
+      return { 
+        error: "Document parsing not possible due to URL restrictions, please provide the file content for accurate extraction.",
+        raw_text: extractedContent
+      };
     }
   } catch (error) {
     console.error("Error extracting document content:", error);
@@ -94,7 +117,7 @@ async function validateDocument(content: any, documentType: string) {
             - issue: Description of the problem
             - severity: Either "low", "medium", or "high"
             
-            If no issues are found, return an empty array.`
+            If no issues are found, return an empty array. DO NOT include markdown formatting in your response.`
           },
           {
             role: "user",
@@ -106,7 +129,10 @@ async function validateDocument(content: any, documentType: string) {
     });
     
     const data = await response.json();
-    const validationResult = data.choices[0].message.content;
+    let validationResult = data.choices[0].message.content;
+    
+    // Clean the response from any markdown formatting
+    validationResult = cleanJsonResponse(validationResult);
     
     try {
       const issues = JSON.parse(validationResult);
