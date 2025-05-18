@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -33,6 +32,26 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
   const [loading, setLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [displayProgress, setDisplayProgress] = useState(document.progress);
+  
+  // Effect to update progress to 100% when processing is complete
+  useEffect(() => {
+    // If document status is no longer 'processing', ensure progress is 100%
+    if (document.status !== 'processing') {
+      if (document.progress < 100) {
+        // Animate to 100% for better UX
+        const timer = setTimeout(() => {
+          setDisplayProgress(100);
+        }, 500);
+        return () => clearTimeout(timer);
+      } else {
+        setDisplayProgress(100);
+      }
+    } else {
+      // Otherwise, use the document's actual progress
+      setDisplayProgress(document.progress);
+    }
+  }, [document.status, document.progress]);
   
   // Mock user ID for now - in a real app, this would come from auth context
   const currentUserId = "00000000-0000-0000-0000-000000000000";
@@ -166,9 +185,9 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
           <CardContent className="pt-4 pb-2">
             <div className="flex justify-between text-xs mb-1">
               <span>Processing</span>
-              <span>{document.progress}%</span>
+              <span>{displayProgress}%</span>
             </div>
-            <Progress value={document.progress} className="h-1.5" />
+            <Progress value={displayProgress} className="h-1.5" />
           </CardContent>
         )}
         

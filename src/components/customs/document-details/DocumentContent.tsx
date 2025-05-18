@@ -24,7 +24,8 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     return null;
   };
   
-  // Check for processing state
+  // Check if the document is still in the processing state
+  // Note: pending_verification status means processing is complete but awaiting review
   if (status === 'processing') {
     return (
       <div className="text-center p-8">
@@ -49,12 +50,12 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
   // If we have raw_text with parseable JSON but content wasn't properly parsed server-side
   const parsedRawText = tryParseRawText();
   
-  // Use the parsed raw_text if available, otherwise use the content object
+  // Use the parsed raw_text if available or if main content is empty
   const displayContent = (!content || Object.keys(content).length === 0 || 
                          (Object.keys(content).length === 1 && content.raw_text)) ? 
                          parsedRawText : content;
   
-  // Check for empty content after trying to use raw_text
+  // Check for empty content after trying all options
   if (!displayContent || Object.keys(displayContent).length === 0) {
     return (
       <div className="text-center p-8">
