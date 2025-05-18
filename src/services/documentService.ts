@@ -1,7 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Document, DocumentStatus, ValidationResult } from '@/types/documents';
+import { Document, DocumentStatus, ValidationResult, ValidationIssue } from '@/types/documents';
 
 // Local mock data store until we integrate with Supabase
 let documentsStore: Document[] = [
@@ -459,8 +458,8 @@ const completeDocumentProcessing = (documentId: string) => {
     documentsStore[docIndex].status = 'rejected';
     documentsStore[docIndex].flagged = true;
     
-    // Add mock validation issues
-    const issues = [
+    // Add mock validation issues with proper type for severity
+    const issues: ValidationIssue[] = [
       { field: 'Company Information', issue: 'Mismatch with registered business details', severity: 'high' },
       { field: 'Tax ID', issue: 'Invalid tax identification number', severity: 'medium' },
       { field: 'Document Date', issue: 'Document appears to be expired', severity: 'high' }
