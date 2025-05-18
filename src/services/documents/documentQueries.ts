@@ -13,28 +13,29 @@ export const getAllDocuments = async (): Promise<Document[]> => {
     const { data: authData } = await supabase.auth.getSession();
     console.log('Current auth status:', authData?.session ? 'Authenticated' : 'Not authenticated');
     
-    // Check if the table exists or has been created by listing all tables
-    const { data: tableList, error: listError } = await supabase
-      .from('information_schema.tables')
-      .select('table_name')
-      .eq('table_schema', 'public')
-      .in('table_name', ['documents', 'document_content', 'validation_issues']);
+    // Check if the table exists or has been created by using a safer approach
+    // We'll use the built-in system tables without querying information_schema directly
+    const { data: tableCheckData, error: tableCheckError } = await supabase
+      .from('documents')
+      .select('id')
+      .limit(1);
       
-    if (listError) {
-      console.error('Error checking tables:', listError);
+    if (tableCheckError) {
+      console.error('Error checking document table:', tableCheckError);
+      console.log('The documents table may not exist or you may not have access to it');
     } else {
-      console.log('Available tables:', tableList);
+      console.log('Documents table exists and is accessible');
     }
     
     // First run a count query to see if documents exist
-    const { data: countData, error: countError } = await supabase
+    const { count, error: countError } = await supabase
       .from('documents')
       .select('*', { count: 'exact', head: true });
     
     if (countError) {
       console.error('Error checking document count:', countError);
     } else {
-      console.log(`Document count: ${countData ? countData.length : 'unknown'}`);
+      console.log(`Document count: ${count !== null ? count : 'unknown'}`);
     }
     
     // Get all documents with full relations and detailed logging
@@ -44,7 +45,6 @@ export const getAllDocuments = async (): Promise<Document[]> => {
       .select(`
         *,
         validation_issues (*),
-        validation_checks (*),
         document_content (content, raw_text),
         verified_by:profiles(username, full_name)
       `)
@@ -86,7 +86,7 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
     console.log('Current auth status:', authData?.session ? 'Authenticated' : 'Not authenticated');
     
     // First run a count query to see if documents with this status exist
-    const { data: countData, error: countError } = await supabase
+    const { count, error: countError } = await supabase
       .from('documents')
       .select('*', { count: 'exact', head: true })
       .eq('status', status);
@@ -94,7 +94,7 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
     if (countError) {
       console.error(`Error checking ${status} document count:`, countError);
     } else {
-      console.log(`${status} document count: ${countData ? countData.length : 'unknown'}`);
+      console.log(`${status} document count: ${count !== null ? count : 'unknown'}`);
     }
     
     const { data: documents, error } = await supabase
@@ -102,7 +102,6 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
       .select(`
         *,
         validation_issues (*),
-        validation_checks (*),
         document_content (content, raw_text),
         verified_by:profiles(username, full_name)
       `)
@@ -145,7 +144,6 @@ export const getDocumentById = async (id: string): Promise<Document | null> => {
       .select(`
         *,
         validation_issues (*),
-        validation_checks (*),
         document_content (content, raw_text),
         verified_by:profiles(username, full_name)
       `)
@@ -184,7 +182,6 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
       .select(`
         *,
         validation_issues (*),
-        validation_checks (*),
         document_content (content, raw_text),
         verified_by:profiles(username, full_name)
       `)
