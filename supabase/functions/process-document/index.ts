@@ -20,10 +20,40 @@ function cleanJsonResponse(text) {
   // Also handle cases where there's no explicit json tag but still has backticks
   cleaned = cleaned.replace(/```\s*/g, "");
   
+  // Remove any "I'm sorry" or explanatory text before the actual JSON
+  const jsonStartIndex = cleaned.indexOf('{');
+  if (jsonStartIndex > 0) {
+    cleaned = cleaned.substring(jsonStartIndex);
+  }
+  
   // Trim any whitespace
   cleaned = cleaned.trim();
   
   return cleaned;
+}
+
+// Convert Base64 to Buffer for PDFs
+async function fetchPdfContent(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+    }
+    
+    // Get the content as arrayBuffer
+    const arrayBuffer = await response.arrayBuffer();
+    
+    // Convert to Base64
+    const base64 = btoa(
+      new Uint8Array(arrayBuffer)
+        .reduce((data, byte) => data + String.fromCharCode(byte), '')
+    );
+    
+    return `data:application/pdf;base64,${base64}`;
+  } catch (error) {
+    console.error("Error fetching PDF:", error);
+    return null;
+  }
 }
 
 // Helper to extract text from a PDF document using OpenAI
@@ -31,6 +61,13 @@ async function extractDocumentContent(fileUrl: string, documentType: string) {
   console.log("Extracting document content from:", fileUrl);
   
   try {
+    // Fetch the PDF content as base64 to pass to OpenAI
+    const pdfBase64 = await fetchPdfContent(fileUrl);
+    
+    if (!pdfBase64) {
+      return { error: "Failed to fetch document content" };
+    }
+    
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -43,19 +80,30 @@ async function extractDocumentContent(fileUrl: string, documentType: string) {
           {
             role: "system",
             content: `You are a highly accurate document parsing specialist that extracts structured information from logistics documents. 
-            Extract all relevant fields and values from the provided document URL. 
-            Format your response as a valid JSON object with fields organized by category. 
-            DO NOT include markdown formatting or code blocks in your response, return ONLY raw JSON.
+            Extract all relevant fields and values from the provided document. 
+            Format your response as a valid JSON object with fields organized by category.
+            DO NOT include any text outside the JSON, no introduction, no explanation, ONLY return raw JSON.
             For documents like commercial invoices, extract invoice number, dates, company details, amounts, line items.
             For bills of lading, extract vessel details, container numbers, ports, cargo descriptions.
             For certificates, extract certificate numbers, issuers, validity periods, standards referenced.`
           },
           {
             role: "user",
-            content: `Extract all relevant information from this ${documentType}. The document is located at ${fileUrl}. Respond with structured JSON only.`
+            content: [
+              {
+                type: "text",
+                text: `Extract all relevant information from this ${documentType}. Respond with structured JSON only.`
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: pdfBase64
+                }
+              }
+            ]
           }
         ],
-        max_tokens: 2000,
+        max_tokens: 4000,
       }),
     });
     
@@ -72,20 +120,22 @@ async function extractDocumentContent(fileUrl: string, documentType: string) {
     
     // Parse the extracted content as JSON
     try {
-      return JSON.parse(extractedContent);
+      const jsonContent = JSON.parse(extractedContent);
+      console.log("Successfully parsed document content");
+      return jsonContent;
     } catch (parseError) {
       console.error("Failed to parse extracted content as JSON:", parseError);
       console.log("Raw content:", extractedContent);
       
-      // If URL access is restricted, return a placeholder with an error message
+      // If there's content but it's not valid JSON, return it as raw text
       return { 
-        error: "Document parsing not possible due to URL restrictions, please provide the file content for accurate extraction.",
+        error: "Failed to parse document content as structured JSON",
         raw_text: extractedContent
       };
     }
   } catch (error) {
     console.error("Error extracting document content:", error);
-    return { error: "Failed to extract document content" };
+    return { error: "Failed to extract document content: " + error.message };
   }
 }
 
@@ -112,19 +162,27 @@ async function validateDocument(content: any, documentType: string) {
             3. Inconsistencies between related fields
             4. Compliance issues with international shipping regulations
             
-            Return ONLY a JSON array of validation issues. Each issue should have these properties:
-            - field: The specific field with the issue
-            - issue: Description of the problem
-            - severity: Either "low", "medium", or "high"
+            Return a JSON array with two properties:
+            1. "validationChecks": An array of validation checks performed, each with these properties:
+               - name: Name of the check performed
+               - description: Description of what was checked
+               - status: Either "passed", "failed", or "pending"
+               - details: Additional details about the check result
             
-            If no issues are found, return an empty array. DO NOT include markdown formatting in your response.`
+            2. "validationIssues": An array of issues found, each with these properties:
+               - field: The specific field with the issue
+               - issue: Description of the problem
+               - severity: Either "low", "medium", or "high"
+            
+            If no issues are found, include an empty array for validationIssues.
+            DO NOT include any text outside the JSON, no markdown formatting, ONLY return raw JSON.`
           },
           {
             role: "user",
             content: `Validate this ${documentType} content:\n${JSON.stringify(content)}`
           }
         ],
-        max_tokens: 1000,
+        max_tokens: 2000,
       }),
     });
     
@@ -135,15 +193,24 @@ async function validateDocument(content: any, documentType: string) {
     validationResult = cleanJsonResponse(validationResult);
     
     try {
-      const issues = JSON.parse(validationResult);
-      return Array.isArray(issues) ? issues : [];
+      const result = JSON.parse(validationResult);
+      return {
+        validationChecks: result.validationChecks || [],
+        validationIssues: result.validationIssues || []
+      };
     } catch (parseError) {
       console.error("Failed to parse validation result as JSON:", parseError);
-      return [];
+      return {
+        validationChecks: [],
+        validationIssues: []
+      };
     }
   } catch (error) {
     console.error("Error validating document:", error);
-    return [];
+    return {
+      validationChecks: [],
+      validationIssues: []
+    };
   }
 }
 
@@ -164,10 +231,17 @@ serve(async (req: Request) => {
       );
     }
     
+    const processingStart = new Date();
+    
     // Update document status to processing
     await supabase
       .from("documents")
-      .update({ status: "processing", progress: 10, last_updated: new Date().toISOString() })
+      .update({ 
+        status: "processing", 
+        progress: 10, 
+        last_updated: new Date().toISOString(),
+        processing_started: new Date().toISOString()
+      })
       .eq("id", documentId);
       
     // Add processing started event to history
@@ -194,7 +268,7 @@ serve(async (req: Request) => {
     const { data: signedUrl } = await supabase
       .storage
       .from("documents")
-      .createSignedUrl(document.storage_path, 60);
+      .createSignedUrl(document.storage_path, 3600); // 1 hour expiry for processing
     
     if (!signedUrl?.signedUrl) {
       throw new Error("Failed to generate signed URL for document");
@@ -225,7 +299,23 @@ serve(async (req: Request) => {
       .eq("id", documentId);
     
     // Validate document
-    const validationIssues = await validateDocument(extractedContent, document.type);
+    const validationResult = await validateDocument(extractedContent, document.type);
+    const { validationChecks, validationIssues } = validationResult;
+    
+    // Store validation checks
+    if (validationChecks && validationChecks.length > 0) {
+      for (const check of validationChecks) {
+        await supabase
+          .from("validation_checks")
+          .insert({
+            document_id: documentId,
+            name: check.name,
+            description: check.description,
+            status: check.status,
+            details: check.details
+          });
+      }
+    }
     
     // Store validation issues if any
     if (validationIssues && validationIssues.length > 0) {
@@ -240,13 +330,19 @@ serve(async (req: Request) => {
       
       // Update document status based on validation
       const hasCriticalIssues = validationIssues.some((issue: any) => issue.severity === "high");
+      
+      const processingEnd = new Date();
+      const processingTime = processingEnd.getTime() - processingStart.getTime();
+      
       await supabase
         .from("documents")
         .update({
-          status: hasCriticalIssues ? "rejected" : "verified",
+          status: hasCriticalIssues ? "rejected" : "pending_verification",
           flagged: hasCriticalIssues,
           progress: 100,
-          last_updated: new Date().toISOString()
+          last_updated: new Date().toISOString(),
+          processing_completed: new Date().toISOString(),
+          processing_time_ms: processingTime
         })
         .eq("id", documentId);
       
@@ -255,18 +351,23 @@ serve(async (req: Request) => {
         .from("document_history")
         .insert({
           document_id: documentId,
-          status: hasCriticalIssues ? "rejected" : "verified",
-          message: hasCriticalIssues ? "Document has validation issues" : "Document validated successfully"
+          status: hasCriticalIssues ? "rejected" : "pending_verification",
+          message: hasCriticalIssues ? "Document has validation issues" : "Document processed and awaiting verification"
         });
     } else {
-      // No issues found - mark as verified
+      // No issues found - mark as pending verification
+      const processingEnd = new Date();
+      const processingTime = processingEnd.getTime() - processingStart.getTime();
+      
       await supabase
         .from("documents")
         .update({
-          status: "verified",
+          status: "pending_verification",
           flagged: false,
           progress: 100,
-          last_updated: new Date().toISOString()
+          last_updated: new Date().toISOString(),
+          processing_completed: new Date().toISOString(),
+          processing_time_ms: processingTime
         })
         .eq("id", documentId);
       
@@ -275,8 +376,8 @@ serve(async (req: Request) => {
         .from("document_history")
         .insert({
           document_id: documentId,
-          status: "verified",
-          message: "Document validated successfully with no issues"
+          status: "pending_verification",
+          message: "Document processed successfully and awaiting human verification"
         });
     }
     

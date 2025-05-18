@@ -18,7 +18,9 @@ import {
   ArrowLeft, 
   Download,
   Search,
-  AlertCircle
+  AlertCircle,
+  XCircle,
+  Timer
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,9 +28,20 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { validateDocumentManually, fixDocumentIssues, downloadDocument } from '@/services/documentService';
+import { verifyDocument, rejectDocument, fixDocumentIssues, downloadDocument } from '@/services/documentService';
 import { toast } from 'sonner';
-import { Document, ValidationIssue } from '@/types/documents';
+import { Document, ValidationIssue, ValidationCheck } from '@/types/documents';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface DocumentDetailsProps {
   document: Document;
@@ -40,6 +53,12 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
   const [loading, setLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false);
+  const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
+  
+  // Mock user ID for now - in a real app, this would come from auth context
+  const currentUserId = "00000000-0000-0000-0000-000000000000";
 
   const getStatusColor = () => {
     switch (document.status) {
@@ -47,6 +66,7 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
       case 'processing': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'verified': return 'bg-green-100 text-green-800 border-green-200';
       case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
+      case 'pending_verification': return 'bg-purple-100 text-purple-800 border-purple-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
@@ -56,7 +76,8 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
       case 'pending': return 'Pending Review';
       case 'processing': return 'AI Processing';
       case 'verified': return 'Verified';
-      case 'rejected': return 'Needs Correction';
+      case 'rejected': return 'Rejected';
+      case 'pending_verification': return 'Pending Verification';
       default: return 'Unknown Status';
     }
   };
@@ -67,14 +88,16 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
       case 'processing': return <Search className="h-5 w-5" />;
       case 'verified': return <FileCheck className="h-5 w-5" />;
       case 'rejected': return <FileX className="h-5 w-5" />;
+      case 'pending_verification': return <AlertCircle className="h-5 w-5" />;
       default: return <FileText className="h-5 w-5" />;
     }
   };
 
-  const handleManualValidation = async () => {
+  const handleVerifyDocument = async () => {
     setLoading(true);
+    setIsVerificationDialogOpen(false);
     try {
-      const result = await validateDocumentManually(document.id);
+      const result = await verifyDocument(document.id, currentUserId);
       if (result.success) {
         toast.success(result.message);
         if (onUpdate) onUpdate();
@@ -82,8 +105,32 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
         toast.error(result.message);
       }
     } catch (error) {
-      console.error('Error during manual validation:', error);
-      toast.error('Failed to validate the document. Please try again.');
+      console.error('Error verifying document:', error);
+      toast.error('Failed to verify the document. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectDocument = async () => {
+    if (!rejectionReason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+    
+    setLoading(true);
+    setIsRejectionDialogOpen(false);
+    try {
+      const result = await rejectDocument(document.id, currentUserId, rejectionReason);
+      if (result.success) {
+        toast.success(result.message);
+        if (onUpdate) onUpdate();
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      console.error('Error rejecting document:', error);
+      toast.error('Failed to reject the document. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -149,7 +196,7 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
     }
 
     // Check for empty content
-    if (Object.keys(document.content).length === 0) {
+    if (!document.content || Object.keys(document.content).length === 0) {
       return (
         <div className="text-center p-8">
           <p className="text-muted-foreground">Content extraction not completed yet.</p>
@@ -172,7 +219,7 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
                   {Object.entries(value).map(([subKey, subValue]) => (
                     <div key={`${key}-${subKey}`} className="flex justify-between border-b pb-1">
                       <span className="text-muted-foreground capitalize text-sm">{subKey.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
-                      <span className="text-sm font-medium">{subValue as string}</span>
+                      <span className="text-sm font-medium">{String(subValue)}</span>
                     </div>
                   ))}
                 </div>
@@ -182,9 +229,9 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
             return (
               <div key={key} className="border rounded-md p-4">
                 <h4 className="font-medium text-md mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</h4>
-                <Table>
-                  <TableHeader>
-                    {value.length > 0 && (
+                {value.length > 0 ? (
+                  <Table>
+                    <TableHeader>
                       <TableRow>
                         {Object.keys(value[0]).map((header) => (
                           <TableHead key={header} className="capitalize">
@@ -192,25 +239,27 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
                           </TableHead>
                         ))}
                       </TableRow>
-                    )}
-                  </TableHeader>
-                  <TableBody>
-                    {value.map((item, index) => (
-                      <TableRow key={index}>
-                        {Object.values(item).map((val, idx) => (
-                          <TableCell key={idx}>{val as string}</TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {value.map((item, index) => (
+                        <TableRow key={index}>
+                          {Object.values(item).map((val, idx) => (
+                            <TableCell key={idx}>{String(val)}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No items available</p>
+                )}
               </div>
             );
           } else {
             return (
               <div key={key} className="flex justify-between border-b pb-2">
                 <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
-                <span className="font-medium">{value as string}</span>
+                <span className="font-medium">{String(value)}</span>
               </div>
             );
           }
@@ -219,8 +268,60 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
     );
   };
 
+  const renderValidationChecks = () => {
+    if (!document.validationChecks || document.validationChecks.length === 0) {
+      return (
+        <Alert variant="warning" className="my-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No validation checks were performed on this document.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <h3 className="font-medium text-lg mb-4">Validation Checks</h3>
+        
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Check</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Details</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {document.validationChecks.map((check, index) => (
+              <TableRow key={index}>
+                <TableCell className="font-medium">{check.name}</TableCell>
+                <TableCell>{check.description}</TableCell>
+                <TableCell>
+                  <Badge className={
+                    check.status === 'passed' ? 'bg-green-100 text-green-800 border-green-200' : 
+                    check.status === 'failed' ? 'bg-red-100 text-red-800 border-red-200' :
+                    'bg-yellow-100 text-yellow-800 border-yellow-200'
+                  }>
+                    {check.status.charAt(0).toUpperCase() + check.status.slice(1)}
+                  </Badge>
+                </TableCell>
+                <TableCell>{check.details}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
   const renderValidationIssues = () => {
-    if (document.validationIssues.length === 0) {
+    const allPassed = document.validationChecks && 
+                       document.validationChecks.length > 0 && 
+                       document.validationChecks.every(check => check.status === 'passed');
+    
+    if (document.validationIssues.length === 0 && allPassed) {
       return (
         <div className="text-center p-8">
           <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-4" />
@@ -231,39 +332,173 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
     }
 
     return (
-      <div className="space-y-4">
-        {document.validationIssues.map((issue: ValidationIssue, index: number) => (
-          <div key={index} className="border rounded-md p-4">
-            <div className="flex items-center space-x-3 mb-2">
-              <AlertTriangle 
-                className={
-                  issue.severity === 'high' ? 'text-red-500' : 
-                  issue.severity === 'medium' ? 'text-yellow-500' : 
-                  'text-orange-400'
-                } 
-              />
-              <h4 className="font-medium text-md">{issue.field}</h4>
-              <Badge 
-                className={
-                  issue.severity === 'high' ? 'bg-red-100 text-red-800 border-red-200' : 
-                  issue.severity === 'medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
-                  'bg-orange-100 text-orange-800 border-orange-200'
-                }
-              >
-                {issue.severity.charAt(0).toUpperCase() + issue.severity.slice(1)}
-              </Badge>
-            </div>
-            <p className="text-muted-foreground text-sm">{issue.issue}</p>
-          </div>
-        ))}
+      <div className="space-y-6">
+        {renderValidationChecks()}
 
-        <div className="flex justify-center pt-4">
-          <Button onClick={handleFixIssues} disabled={loading} className="bg-crane-blue hover:bg-opacity-90">
-            {loading ? 'Processing...' : 'Fix Issues and Validate'}
-          </Button>
-        </div>
+        {document.validationIssues.length > 0 && (
+          <div className="space-y-4 mt-8">
+            <h3 className="font-medium text-lg">Validation Issues</h3>
+            {document.validationIssues.map((issue: ValidationIssue, index: number) => (
+              <div key={index} className="border rounded-md p-4">
+                <div className="flex items-center space-x-3 mb-2">
+                  <AlertTriangle 
+                    className={
+                      issue.severity === 'high' ? 'text-red-500' : 
+                      issue.severity === 'medium' ? 'text-yellow-500' : 
+                      'text-orange-400'
+                    } 
+                  />
+                  <h4 className="font-medium text-md">{issue.field}</h4>
+                  <Badge 
+                    className={
+                      issue.severity === 'high' ? 'bg-red-100 text-red-800 border-red-200' : 
+                      issue.severity === 'medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                      'bg-orange-100 text-orange-800 border-orange-200'
+                    }
+                  >
+                    {issue.severity.charAt(0).toUpperCase() + issue.severity.slice(1)}
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground text-sm">{issue.issue}</p>
+              </div>
+            ))}
+
+            <div className="flex justify-center pt-4">
+              <Button onClick={handleFixIssues} disabled={loading} className="bg-crane-blue hover:bg-opacity-90">
+                {loading ? 'Processing...' : 'Fix Issues and Re-validate'}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     );
+  };
+
+  // Render verification actions based on status
+  const renderVerificationActions = () => {
+    // Only show verification/rejection buttons for pending_verification status
+    if (document.status !== 'pending_verification') {
+      return null;
+    }
+
+    return (
+      <div className="flex space-x-2">
+        <Dialog open={isVerificationDialogOpen} onOpenChange={setIsVerificationDialogOpen}>
+          <DialogTrigger asChild>
+            <Button 
+              size="sm" 
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Verify Document
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Verify Document</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to verify this document? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex space-x-2 justify-end">
+              <Button variant="outline" onClick={() => setIsVerificationDialogOpen(false)}>Cancel</Button>
+              <Button 
+                onClick={handleVerifyDocument} 
+                className="bg-green-600 hover:bg-green-700"
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : 'Confirm Verification'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        <Dialog open={isRejectionDialogOpen} onOpenChange={setIsRejectionDialogOpen}>
+          <DialogTrigger asChild>
+            <Button 
+              size="sm" 
+              variant="destructive"
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              Reject Document
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reject Document</DialogTitle>
+              <DialogDescription>
+                Please provide a reason for rejecting this document. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="my-4">
+              <Textarea 
+                placeholder="Reason for rejection"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+            <DialogFooter className="flex space-x-2 justify-end">
+              <Button variant="outline" onClick={() => setIsRejectionDialogOpen(false)}>Cancel</Button>
+              <Button 
+                onClick={handleRejectDocument} 
+                variant="destructive"
+                disabled={loading || !rejectionReason.trim()}
+              >
+                {loading ? 'Processing...' : 'Confirm Rejection'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  };
+
+  const getValidationStatusDisplay = () => {
+    if (!document.validationChecks || document.validationChecks.length === 0) {
+      return (
+        <div className="flex items-center">
+          <Clock className="text-yellow-500 mr-2" />
+          <span className="font-medium">No validation performed yet</span>
+        </div>
+      );
+    }
+
+    const hasIssues = document.validationIssues.length > 0;
+    const failedChecks = document.validationChecks.filter(check => check.status === 'failed').length;
+    const pendingChecks = document.validationChecks.filter(check => check.status === 'pending').length;
+    const passedChecks = document.validationChecks.filter(check => check.status === 'passed').length;
+    const totalChecks = document.validationChecks.length;
+
+    if (failedChecks > 0 || hasIssues) {
+      return (
+        <div className="flex items-center">
+          <AlertTriangle className="text-red-500 mr-2" />
+          <span className="font-medium">{failedChecks} failed checks, {document.validationIssues.length} issues found</span>
+        </div>
+      );
+    } else if (pendingChecks > 0) {
+      return (
+        <div className="flex items-center">
+          <Clock className="text-yellow-500 mr-2" />
+          <span className="font-medium">{pendingChecks} checks pending, {passedChecks} passed</span>
+        </div>
+      );
+    } else if (document.status === 'verified') {
+      return (
+        <div className="flex items-center">
+          <CheckCircle className="text-green-500 mr-2" />
+          <span className="font-medium">All {totalChecks} checks passed and verified</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center">
+          <CheckCircle className="text-green-500 mr-2" />
+          <span className="font-medium">All {totalChecks} checks passed, awaiting verification</span>
+        </div>
+      );
+    }
   };
 
   return (
@@ -308,17 +543,7 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
                 <Download className="mr-2 h-4 w-4" />
                 {downloadLoading ? 'Processing...' : 'Download'}
               </Button>
-              {document.status === 'rejected' && (
-                <Button 
-                  size="sm" 
-                  className="bg-crane-blue hover:bg-opacity-90"
-                  onClick={handleManualValidation}
-                  disabled={loading}
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  {loading ? 'Validating...' : 'Validate Manually'}
-                </Button>
-              )}
+              {renderVerificationActions()}
             </div>
           </div>
         </CardHeader>
@@ -358,6 +583,11 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
                         {getStatusIcon()}
                         <span className="ml-2 font-medium">{getStatusText()}</span>
                       </div>
+                      {document.verifiedBy && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          {document.status === 'verified' ? 'Verified by' : 'Rejected by'}: {document.verifiedBy.fullName || document.verifiedBy.username}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                   
@@ -366,12 +596,28 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
                       <CardTitle className="text-sm">Processing Time</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="font-medium">
-                        {document.status === 'processing' 
-                          ? `${document.progress}% Complete` 
-                          : document.status === 'pending'
-                            ? 'Not started'
-                            : 'Completed'}
+                      <div className="font-medium flex items-center">
+                        {document.status === 'processing' ? (
+                          <>
+                            <Timer className="mr-2 h-4 w-4" />
+                            <span>{document.progress}% Complete</span>
+                          </>
+                        ) : document.status === 'pending' ? (
+                          <>
+                            <Clock className="mr-2 h-4 w-4" />
+                            <span>Not started</span>
+                          </>
+                        ) : document.processingTime ? (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                            <span>{document.processingTime}</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                            <span>Processing completed</span>
+                          </>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -381,24 +627,7 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
                       <CardTitle className="text-sm">Validation Status</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center">
-                        {document.validationIssues.length > 0 ? (
-                          <>
-                            <AlertTriangle className="text-red-500 mr-2" />
-                            <span className="font-medium">{document.validationIssues.length} issues found</span>
-                          </>
-                        ) : document.status === 'verified' ? (
-                          <>
-                            <CheckCircle className="text-green-500 mr-2" />
-                            <span className="font-medium">Validated successfully</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="text-yellow-500 mr-2" />
-                            <span className="font-medium">Awaiting validation</span>
-                          </>
-                        )}
-                      </div>
+                      {getValidationStatusDisplay()}
                     </CardContent>
                   </Card>
                 </div>
@@ -419,14 +648,27 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
                         </p>
                       </div>
                       
-                      {document.status !== 'pending' && (
+                      {document.processingStarted && (
                         <div className="mb-6">
                           <div className="absolute -left-3 mt-1.5 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
                             <Search className="h-3 w-3 text-blue-600" />
                           </div>
                           <h4 className="font-medium">AI Processing Started</h4>
                           <p className="text-sm text-muted-foreground">
-                            {new Date(new Date(document.lastUpdated).getTime() - 10 * 60 * 1000).toLocaleString()}
+                            {new Date(document.processingStarted).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {document.processingCompleted && (
+                        <div className="mb-6">
+                          <div className="absolute -left-3 mt-1.5 h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center">
+                            <CheckCircle className="h-3 w-3 text-purple-600" />
+                          </div>
+                          <h4 className="font-medium">Processing Completed</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(document.processingCompleted).toLocaleString()}
+                            {document.processingTime && ` (took ${document.processingTime})`}
                           </p>
                         </div>
                       )}
@@ -443,7 +685,8 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
                             )}
                           </div>
                           <h4 className="font-medium">
-                            {document.status === 'verified' ? 'Validation Successful' : 'Validation Failed'}
+                            {document.status === 'verified' ? 'Document Verified' : 'Document Rejected'}
+                            {document.verifiedBy && ` by ${document.verifiedBy.fullName || document.verifiedBy.username}`}
                           </h4>
                           <p className="text-sm text-muted-foreground">
                             {new Date(document.lastUpdated).toLocaleString()}

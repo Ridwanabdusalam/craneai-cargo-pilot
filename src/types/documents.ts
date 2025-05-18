@@ -1,5 +1,5 @@
 
-export type DocumentStatus = 'pending' | 'processing' | 'verified' | 'rejected';
+export type DocumentStatus = 'pending' | 'processing' | 'verified' | 'rejected' | 'pending_verification';
 
 export interface ValidationIssue {
   field: string;
@@ -7,8 +7,20 @@ export interface ValidationIssue {
   severity: 'low' | 'medium' | 'high';
 }
 
+export interface ValidationCheck {
+  name: string;
+  description: string;
+  status: 'passed' | 'failed' | 'pending';
+  details: string;
+}
+
 export interface DocumentContent {
   [key: string]: any;
+}
+
+export interface VerifiedBy {
+  username: string;
+  fullName: string;
 }
 
 export interface Document {
@@ -21,6 +33,11 @@ export interface Document {
   flagged: boolean;
   content: DocumentContent;
   validationIssues: ValidationIssue[];
+  validationChecks: ValidationCheck[];
+  processingTime: string | null;
+  verifiedBy: VerifiedBy | null;
+  processingStarted?: string;
+  processingCompleted?: string;
 }
 
 export interface ValidationResult {

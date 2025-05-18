@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Document, DocumentStatus, ValidationResult, ValidationIssue } from '@/types/documents';
+import { Document, DocumentStatus, ValidationResult, ValidationIssue, ValidationCheck } from '@/types/documents';
 import { Json } from '@/integrations/supabase/types';
 
 // Get all documents
@@ -12,7 +12,9 @@ export const getAllDocuments = async (): Promise<Document[]> => {
       .select(`
         *,
         validation_issues (*),
-        document_content (content, raw_text)
+        validation_checks (*),
+        document_content (content, raw_text),
+        verified_by:profiles(username, full_name)
       `)
       .order('last_updated', { ascending: false });
       
@@ -36,7 +38,9 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
       .select(`
         *,
         validation_issues (*),
-        document_content (content, raw_text)
+        validation_checks (*),
+        document_content (content, raw_text),
+        verified_by:profiles(username, full_name)
       `)
       .eq('status', status)
       .order('last_updated', { ascending: false });
@@ -61,7 +65,9 @@ export const getDocumentById = async (id: string): Promise<Document | null> => {
       .select(`
         *,
         validation_issues (*),
-        document_content (content, raw_text)
+        validation_checks (*),
+        document_content (content, raw_text),
+        verified_by:profiles(username, full_name)
       `)
       .eq('id', id)
       .single();
@@ -92,6 +98,35 @@ const formatDocumentFromSupabase = (supabaseDoc: any): Document => {
     severity: issue.severity as 'low' | 'medium' | 'high'
   })) || [];
   
+  // Extract validation checks
+  const validationChecks: ValidationCheck[] = supabaseDoc.validation_checks?.map((check: any) => ({
+    name: check.name,
+    description: check.description,
+    status: check.status as 'passed' | 'failed' | 'pending',
+    details: check.details
+  })) || [];
+  
+  // Extract verified by information
+  const verifiedBy = supabaseDoc.verified_by && supabaseDoc.verified_by.length > 0 
+    ? {
+        username: supabaseDoc.verified_by[0].username,
+        fullName: supabaseDoc.verified_by[0].full_name
+      }
+    : null;
+
+  // Calculate processing time if available
+  let processingTime = null;
+  if (supabaseDoc.processing_time_ms) {
+    const ms = supabaseDoc.processing_time_ms;
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    if (minutes > 0) {
+      processingTime = `${minutes} min ${seconds % 60} sec`;
+    } else {
+      processingTime = `${seconds} seconds`;
+    }
+  }
+  
   return {
     id: supabaseDoc.id,
     title: supabaseDoc.title,
@@ -101,7 +136,12 @@ const formatDocumentFromSupabase = (supabaseDoc: any): Document => {
     progress: supabaseDoc.progress,
     flagged: supabaseDoc.flagged,
     content: documentContent,
-    validationIssues: validationIssues
+    validationIssues,
+    validationChecks,
+    processingTime,
+    verifiedBy,
+    processingStarted: supabaseDoc.processing_started,
+    processingCompleted: supabaseDoc.processing_completed
   };
 };
 
@@ -158,7 +198,10 @@ export const uploadDocument = async (file: File, title: string): Promise<Documen
       progress: document.progress,
       flagged: document.flagged,
       content: {},
-      validationIssues: []
+      validationIssues: [],
+      validationChecks: [],
+      processingTime: null,
+      verifiedBy: null
     };
   } catch (error) {
     console.error('Error uploading document:', error);
@@ -177,7 +220,9 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
       .select(`
         *,
         validation_issues (*),
-        document_content (content, raw_text)
+        validation_checks (*),
+        document_content (content, raw_text),
+        verified_by:profiles(username, full_name)
       `)
       .or(`title.ilike.%${query}%,type.ilike.%${query}%`)
       .order('last_updated', { ascending: false });
@@ -194,15 +239,9 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
   }
 };
 
-// Validate document manually
-export const validateDocumentManually = async (id: string): Promise<ValidationResult> => {
+// Verify document
+export const verifyDocument = async (id: string, userId: string): Promise<ValidationResult> => {
   try {
-    // Clear any existing validation issues
-    await supabase
-      .from('validation_issues')
-      .delete()
-      .eq('document_id', id);
-      
     // Update document status
     const { error } = await supabase
       .from('documents')
@@ -210,7 +249,8 @@ export const validateDocumentManually = async (id: string): Promise<ValidationRe
         status: 'verified',
         flagged: false,
         progress: 100,
-        last_updated: new Date().toISOString()
+        last_updated: new Date().toISOString(),
+        verified_by: userId
       })
       .eq('id', id);
       
@@ -224,16 +264,54 @@ export const validateDocumentManually = async (id: string): Promise<ValidationRe
       .insert({
         document_id: id,
         status: 'verified',
-        message: 'Document manually validated by user'
+        message: 'Document manually verified by user'
       });
     
     return { 
       success: true, 
-      message: 'Document has been manually validated and approved'
+      message: 'Document has been verified and approved'
     };
   } catch (error) {
-    console.error('Error validating document:', error);
-    return { success: false, message: 'Failed to validate document' };
+    console.error('Error verifying document:', error);
+    return { success: false, message: 'Failed to verify document' };
+  }
+};
+
+// Reject document
+export const rejectDocument = async (id: string, userId: string, reason: string): Promise<ValidationResult> => {
+  try {
+    // Update document status
+    const { error } = await supabase
+      .from('documents')
+      .update({
+        status: 'rejected',
+        flagged: true,
+        progress: 100,
+        last_updated: new Date().toISOString(),
+        verified_by: userId
+      })
+      .eq('id', id);
+      
+    if (error) {
+      throw error;
+    }
+    
+    // Add history record
+    await supabase
+      .from('document_history')
+      .insert({
+        document_id: id,
+        status: 'rejected',
+        message: `Document rejected: ${reason}`
+      });
+    
+    return { 
+      success: true, 
+      message: 'Document has been rejected'
+    };
+  } catch (error) {
+    console.error('Error rejecting document:', error);
+    return { success: false, message: 'Failed to reject document' };
   }
 };
 
@@ -290,7 +368,7 @@ export const fixDocumentIssues = async (id: string, corrections: Record<string, 
     const { error: docUpdateError } = await supabase
       .from('documents')
       .update({
-        status: 'verified',
+        status: 'pending_verification',
         flagged: false,
         progress: 100,
         last_updated: new Date().toISOString()
@@ -306,13 +384,13 @@ export const fixDocumentIssues = async (id: string, corrections: Record<string, 
       .from('document_history')
       .insert({
         document_id: id,
-        status: 'verified',
-        message: 'Document issues fixed and validated'
+        status: 'pending_verification',
+        message: 'Document issues fixed and awaiting verification'
       });
     
     return { 
       success: true, 
-      message: 'Document issues have been fixed and document is now verified'
+      message: 'Document issues have been fixed and document is now awaiting verification'
     };
   } catch (error) {
     console.error('Error fixing document issues:', error);
