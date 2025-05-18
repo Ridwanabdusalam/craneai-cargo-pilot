@@ -252,7 +252,9 @@ export const fixDocumentIssues = async (id: string, corrections: Record<string, 
     
     // Apply corrections to content if we have content data
     if (contentData) {
-      const updatedContent = { ...contentData.content, ...corrections };
+      // Fix: Cast to an object type before spreading
+      const currentContent = contentData.content as Record<string, unknown>;
+      const updatedContent = { ...currentContent, ...corrections };
       
       // Update the content
       const { error: updateError } = await supabase

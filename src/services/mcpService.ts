@@ -41,16 +41,20 @@ export const seedKnowledgeBase = async (): Promise<boolean> => {
 // Get all context source types (for filtering)
 export const getContextSourceTypes = async (): Promise<string[]> => {
   try {
+    // Fix: Use a different approach to get distinct values
     const { data, error } = await supabase
       .from('context_sources')
-      .select('source_type')
-      .distinct();
+      .select('source_type');
       
     if (error) {
       throw error;
     }
     
-    return data.map(item => item.source_type);
+    // Manually get unique source types from the results
+    const uniqueTypes = new Set<string>();
+    data.forEach(row => uniqueTypes.add(row.source_type));
+    
+    return Array.from(uniqueTypes);
   } catch (error) {
     console.error('Error fetching context source types:', error);
     return ['company_info', 'services', 'industry', 'technology', 'compliance'];
