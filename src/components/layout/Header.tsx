@@ -1,94 +1,93 @@
 
 import React from 'react';
-import { Bell, Menu, Search, ChevronDown, User } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { ModeToggle } from '@/components/ui/mode-toggle';
+import { Bell, Settings, User, LogOut } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
-interface HeaderProps {
-  toggleSidebar: () => void;
-}
+const Header = () => {
+  const { user, signOut } = useAuth();
 
-const Header = ({ toggleSidebar }: HeaderProps) => {
-  const location = useLocation();
-  
-  // Get current page title based on route
-  const getPageTitle = () => {
-    const path = location.pathname;
-    
-    if (path === '/') return 'Dashboard';
-    if (path === '/support') return 'AI Support Hub';
-    if (path === '/clearance') return 'SmartClearance Engine';
-    if (path === '/logistics') return 'Logistics Control Tower AI';
-    if (path === '/quotes') return 'SmartQuote Optimizer';
-    if (path === '/settings') return 'Settings';
-    
-    return 'CraneAI Logistics Suite';
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((part) => part[0]?.toUpperCase() || '')
+      .join('')
+      .slice(0, 2);
   };
 
   return (
-    <header className="bg-white border-b border-border shadow-sm">
-      <div className="flex h-16 items-center justify-between px-4">
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="md:hidden mr-2"
-            onClick={toggleSidebar}
-          >
-            <Menu size={20} />
-          </Button>
-          <div>
-            <h1 className="text-xl font-semibold text-crane-blue">{getPageTitle()}</h1>
-            <p className="text-sm text-muted-foreground">Crane World Logistics</p>
-          </div>
-        </div>
-
-        <div className="hidden md:flex items-center border rounded-md bg-muted px-3 py-2 w-96">
-          <Search size={18} className="text-muted-foreground" />
-          <input
-            placeholder="Search..."
-            className="bg-transparent border-none focus:outline-none ml-2 w-full text-sm"
-          />
-        </div>
-
-        <div className="flex items-center">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell size={20} />
-            <span className="absolute top-1 right-1.5 w-2 h-2 bg-crane-coral rounded-full"></span>
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center ml-2">
-                <Avatar className="h-8 w-8 mr-2">
-                  <AvatarImage src="/placeholder.svg" />
-                  <AvatarFallback>OP</AvatarFallback>
-                </Avatar>
-                <span className="hidden md:inline-block text-sm font-medium">Operations Manager</span>
-                <ChevronDown size={16} className="ml-1" />
+    <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center">
+        <div className="flex flex-1 items-center justify-end space-x-4">
+          <nav className="flex items-center space-x-2">
+            <Button variant="ghost" size="icon">
+              <Bell className="h-5 w-5" />
+            </Button>
+            
+            <ModeToggle />
+            
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={user.user_metadata?.avatar_url} alt={user.email || ''} />
+                      <AvatarFallback className="bg-crane-blue/10 text-crane-blue">
+                        {getInitials(user.user_metadata?.full_name || user.email?.split('@')[0] || 'U')}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {user.user_metadata?.full_name || user.email?.split('@')[0]}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => signOut()}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/auth">
+                  Log in
+                </Link>
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User size={16} className="mr-2" />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Logout</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )}
+          </nav>
         </div>
       </div>
     </header>
