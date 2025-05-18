@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -47,99 +48,23 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
 
-  // Try to parse the raw_text if available
-  const parsedRawText = tryParseRawText();
-  
-  // Determine what content to display
-  // First try using the content object, if it's not empty and doesn't just contain raw_text
-  // If that's not available, use the parsed raw_text
-  let displayContent;
-  
-  if (content && Object.keys(content).length > 0) {
-    if (Object.keys(content).length === 1 && content.raw_text) {
-      // If content only has raw_text, use the parsed version
-      displayContent = parsedRawText;
-    } else {
-      // Otherwise use the content object directly
-      displayContent = content;
-    }
-  } else {
-    // If content is empty, try the parsed raw_text
-    displayContent = parsedRawText;
-  }
-  
-  // Check for empty content after trying all options
-  if (!displayContent || Object.keys(displayContent).length === 0) {
+  // Check if we have raw_text and directly display it
+  if (content?.raw_text) {
+    // Just display the raw text directly
     return (
-      <div className="text-center p-8">
-        <p className="text-muted-foreground">No content could be extracted from this document.</p>
+      <div className="p-4 border rounded-md">
+        <h3 className="text-lg font-medium mb-4">Raw Document Content</h3>
+        <pre className="bg-muted p-4 rounded-md overflow-auto whitespace-pre-wrap">
+          {content.raw_text}
+        </pre>
       </div>
     );
   }
 
-  // Log what we're displaying to help with debugging
-  console.log('Displaying document content:', displayContent);
-
+  // If no raw text, show an empty state
   return (
-    <div className="space-y-6">
-      {Object.entries(displayContent).map(([key, value]) => {
-        if (key === 'error' || key === 'raw_text') {
-          return null; // Skip error and raw_text fields
-        }
-        
-        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-          return (
-            <div key={key} className="border rounded-md p-4">
-              <h4 className="font-medium text-md mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</h4>
-              <div className="space-y-2">
-                {Object.entries(value).map(([subKey, subValue]) => (
-                  <div key={`${key}-${subKey}`} className="flex justify-between border-b pb-1">
-                    <span className="text-muted-foreground capitalize text-sm">{subKey.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
-                    <span className="text-sm font-medium">{String(subValue)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        } else if (Array.isArray(value)) {
-          return (
-            <div key={key} className="border rounded-md p-4">
-              <h4 className="font-medium text-md mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</h4>
-              {value.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {Object.keys(value[0]).map((header) => (
-                        <TableHead key={header} className="capitalize">
-                          {header.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {value.map((item, index) => (
-                      <TableRow key={index}>
-                        {Object.values(item).map((val, idx) => (
-                          <TableCell key={idx}>{String(val)}</TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-sm text-muted-foreground">No items available</p>
-              )}
-            </div>
-          );
-        } else {
-          return (
-            <div key={key} className="flex justify-between border-b pb-2">
-              <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
-              <span className="font-medium">{String(value)}</span>
-            </div>
-          );
-        }
-      })}
+    <div className="text-center p-8">
+      <p className="text-muted-foreground">No raw content available for this document.</p>
     </div>
   );
 };
