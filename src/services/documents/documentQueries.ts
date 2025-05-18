@@ -8,6 +8,14 @@ import { formatDocumentFromSupabase } from './documentFormatters';
 export const getAllDocuments = async (): Promise<Document[]> => {
   try {
     console.log('Fetching all documents');
+    
+    // First check if documents table exists
+    const { data: tableExists } = await supabase
+      .from('documents')
+      .select('id')
+      .limit(1)
+      .throwOnError();
+    
     const { data: documents, error } = await supabase
       .from('documents')
       .select(`

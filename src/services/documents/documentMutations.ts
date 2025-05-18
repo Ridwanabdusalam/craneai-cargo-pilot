@@ -7,21 +7,45 @@ import { ValidationResult } from '@/types/documents';
 export const uploadDocument = async (file: File, title: string): Promise<any> => {
   try {
     console.log(`Starting document upload: ${title}`);
+    
     // 1. Upload file to storage
     const fileExt = file.name.split('.').pop();
-    const filePath = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    const filePath = `${fileName}.${fileExt}`;
     
     console.log(`Uploading file to storage path: ${filePath}`);
+    
+    // Check if storage bucket exists first
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const documentsBucket = buckets?.find(b => b.name === 'documents');
+    
+    if (!documentsBucket) {
+      console.log('Documents bucket not found, creating it');
+      const { error: bucketError } = await supabase.storage.createBucket('documents', {
+        public: false,
+        fileSizeLimit: 10485760, // 10MB in bytes
+      });
+      
+      if (bucketError) {
+        console.error('Error creating bucket:', bucketError);
+        throw new Error(`Failed to create storage bucket: ${bucketError.message}`);
+      }
+    }
+    
+    // Now upload the file
     const { error: uploadError, data: storageData } = await supabase.storage
       .from('documents')
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
       
     if (uploadError) {
       console.error('Error uploading file to storage:', uploadError);
       throw new Error(`Storage upload failed: ${uploadError.message}`);
     }
     
-    console.log('File uploaded to storage successfully');
+    console.log('File uploaded to storage successfully', storageData);
     
     // 2. Create document record in the database
     console.log('Creating document record in database');
@@ -69,16 +93,22 @@ export const uploadDocument = async (file: File, title: string): Promise<any> =>
       // Continue anyway - the document is uploaded, we can try processing again later
     }
     
-    // 4. Start document processing via edge function
+    // 4. Start document processing via edge function - with proper error handling
     try {
       console.log('Invoking document processing function');
-      await supabase.functions.invoke('process-document', {
+      const { error: functionError } = await supabase.functions.invoke('process-document', {
         body: { documentId: document.id }
       });
-      console.log('Document processing started');
+      
+      if (functionError) {
+        console.error('Error invoking processing function:', functionError);
+        // Continue anyway - the document is uploaded, processing can be retried
+      } else {
+        console.log('Document processing started successfully');
+      }
     } catch (processingError) {
       console.error("Error starting document processing:", processingError);
-      // Continue anyway - the document is uploaded, we can try processing again later
+      // Continue anyway - the document is uploaded, processing can be retried
     }
     
     // 5. Return the created document
@@ -96,7 +126,7 @@ export const uploadDocument = async (file: File, title: string): Promise<any> =>
       processingTime: null,
       verifiedBy: null
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error uploading document:', error);
     throw error; // Let the calling component handle UI notifications
   }

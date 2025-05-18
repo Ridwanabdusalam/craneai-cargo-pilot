@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
@@ -125,8 +124,10 @@ const SmartClearance = () => {
     console.log('Document upload completed. Refreshing document list...');
     toast.success('Document uploaded successfully');
     
-    // Trigger a refetch by updating fetchTrigger
-    setFetchTrigger(prev => prev + 1);
+    // Trigger a refetch by updating fetchTrigger with a delay to ensure database updates are complete
+    setTimeout(() => {
+      setFetchTrigger(prev => prev + 1);
+    }, 500);
   };
   
   // Handle view document details

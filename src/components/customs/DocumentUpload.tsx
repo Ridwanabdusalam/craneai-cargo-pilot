@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
   const [title, setTitle] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,6 +42,8 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
         return;
       }
       
+      // Clear any previous error
+      setUploadError(null);
       setFile(selectedFile);
       if (!title) {
         setTitle(selectedFile.name.replace(/\.[^/.]+$/, ""));
@@ -72,6 +76,8 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
         return;
       }
       
+      // Clear any previous error
+      setUploadError(null);
       setFile(droppedFile);
       if (!title) {
         setTitle(droppedFile.name.replace(/\.[^/.]+$/, ""));
@@ -91,8 +97,10 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
     }
 
     setUploading(true);
+    setUploadError(null);
 
-    // Simulate progress more realistically
+    // Reset progress and start progress simulation
+    setUploadProgress(0);
     const interval = setInterval(() => {
       setUploadProgress(prev => {
         if (prev < 60) return prev + 5;
@@ -105,7 +113,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
     try {
       console.log('Starting document upload...', {file: file.name, title});
       
-      // Call the direct document mutation service instead of through documentService
+      // Call the document upload service
       const result = await uploadDocument(file, title);
       
       // Ensure progress reaches 100%
@@ -124,9 +132,10 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
         }
       }, 500);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error('Error uploading document. Please try again.');
+      setUploadError(error.message || 'Error uploading document');
+      toast.error(error.message || 'Error uploading document. Please try again.');
       setUploadProgress(0);  // Reset progress on error
     } finally {
       clearInterval(interval);
@@ -137,6 +146,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
   const clearFile = () => {
     setFile(null);
     setTitle('');
+    setUploadError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -220,6 +230,12 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
                 <span>{uploadProgress}%</span>
               </div>
               <Progress value={uploadProgress} className="h-1.5" />
+            </div>
+          )}
+
+          {uploadError && (
+            <div className="text-sm text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">
+              {uploadError}
             </div>
           )}
         </div>
