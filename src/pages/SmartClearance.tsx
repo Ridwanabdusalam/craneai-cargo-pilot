@@ -30,7 +30,8 @@ import {
   getAllDocuments, 
   getDocumentsByStatus, 
   getDocumentById,
-  searchDocuments
+  searchDocuments,
+  createSampleDocuments
 } from '@/services/documentService';
 import { Document, DocumentStatus, DocumentFilters as IDocumentFilters } from '@/types/documents';
 import { useAuth } from '@/context/AuthContext';
@@ -47,6 +48,7 @@ const SmartClearance = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [fetchTrigger, setFetchTrigger] = useState(0); // Used to trigger document fetching
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [creatingDocs, setCreatingDocs] = useState(false);
   const { user } = useAuth(); // Get authenticated user
   
   // Constants
@@ -54,7 +56,7 @@ const SmartClearance = () => {
   
   // Fetch documents with enhanced error handling
   const fetchDocuments = useCallback(async () => {
-    console.log('Fetching documents...', { activeTab, authenticated: !!user });
+    console.log('Fetching documents...', { activeTab, authenticated: !!user, fetchTrigger });
     setIsLoading(true);
     setFetchError(null);
     
@@ -92,7 +94,7 @@ const SmartClearance = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, searchQuery, fetchError, user]); 
+  }, [activeTab, searchQuery, fetchError, user, fetchTrigger]); 
   
   // Initial data fetch
   useEffect(() => {
@@ -137,6 +139,24 @@ const SmartClearance = () => {
     setTimeout(() => {
       setFetchTrigger(prev => prev + 1);
     }, 2000); // Increased delay to ensure all database operations complete
+  };
+  
+  // Handle creating sample documents
+  const handleCreateSampleDocs = async () => {
+    try {
+      setCreatingDocs(true);
+      await createSampleDocuments();
+      toast.success('Sample documents created successfully');
+      // Trigger a refetch with delay to ensure DB operations complete
+      setTimeout(() => {
+        setFetchTrigger(prev => prev + 1);
+      }, 2000);
+    } catch (error) {
+      toast.error('Failed to create sample documents');
+      console.error('Error creating sample documents:', error);
+    } finally {
+      setCreatingDocs(false);
+    }
   };
   
   // Handle view document details
@@ -221,13 +241,23 @@ const SmartClearance = () => {
               <FileText size={18} className="text-crane-blue mr-2" />
               Document Processing Pipeline
             </CardTitle>
-            <Button 
-              onClick={() => setIsUploadOpen(true)} 
-              className="bg-crane-blue hover:bg-opacity-90"
-            >
-              <Upload size={18} className="mr-2" />
-              Upload Document
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleCreateSampleDocs}
+                variant="outline"
+                className="border-crane-blue text-crane-blue hover:bg-crane-blue/10"
+                disabled={creatingDocs}
+              >
+                {creatingDocs ? 'Creating...' : 'Create Sample Documents'}
+              </Button>
+              <Button 
+                onClick={() => setIsUploadOpen(true)} 
+                className="bg-crane-blue hover:bg-opacity-90"
+              >
+                <Upload size={18} className="mr-2" />
+                Upload Document
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -330,13 +360,21 @@ const SmartClearance = () => {
                 <div className="flex flex-col items-center justify-center h-52 text-center">
                   <FileText size={48} className="text-muted-foreground opacity-20 mb-4" />
                   <p className="text-muted-foreground">No documents found</p>
-                  <Button 
-                    variant="link" 
-                    onClick={() => setIsUploadOpen(true)} 
-                    className="mt-2"
-                  >
-                    Upload your first document
-                  </Button>
+                  <div className="flex flex-col gap-2 mt-2">
+                    <Button 
+                      variant="default"
+                      onClick={handleCreateSampleDocs}
+                      disabled={creatingDocs}
+                    >
+                      {creatingDocs ? 'Creating...' : 'Create Sample Documents'}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsUploadOpen(true)}
+                    >
+                      Upload your first document
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
