@@ -4,17 +4,16 @@ import { toast } from 'sonner';
 import { Document, DocumentStatus } from '@/types/documents';
 import { formatDocumentFromSupabase } from './documentFormatters';
 
-// Get all documents with enhanced debugging
+// Get all documents with simplified query that doesn't rely on non-existent relationships
 export const getAllDocuments = async (): Promise<Document[]> => {
   try {
-    console.log('Fetching all documents - debug version');
+    console.log('Fetching all documents');
     
     // First check if we're authenticated
     const { data: authData } = await supabase.auth.getSession();
     console.log('Current auth status:', authData?.session ? 'Authenticated' : 'Not authenticated');
     
-    // Check if the table exists or has been created by using a safer approach
-    // We'll use the built-in system tables without querying information_schema directly
+    // Check if the table exists
     const { data: tableCheckData, error: tableCheckError } = await supabase
       .from('documents')
       .select('id')
@@ -27,7 +26,7 @@ export const getAllDocuments = async (): Promise<Document[]> => {
       console.log('Documents table exists and is accessible');
     }
     
-    // First run a count query to see if documents exist
+    // Get the document count
     const { count, error: countError } = await supabase
       .from('documents')
       .select('*', { count: 'exact', head: true });
@@ -38,21 +37,15 @@ export const getAllDocuments = async (): Promise<Document[]> => {
       console.log(`Document count: ${count !== null ? count : 'unknown'}`);
     }
     
-    // Get all documents with full relations and detailed logging
-    console.log('Attempting to fetch all documents with full relations');
+    // Use a simpler query that doesn't rely on relationships that might not exist
+    console.log('Fetching documents with a simplified query');
     const { data: documents, error } = await supabase
       .from('documents')
-      .select(`
-        *,
-        validation_issues (*),
-        document_content (content, raw_text),
-        verified_by:profiles(username, full_name)
-      `)
+      .select('*')
       .order('last_updated', { ascending: false });
       
     if (error) {
       console.error('Error in getAllDocuments:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
       return [];
     }
     
@@ -67,7 +60,37 @@ export const getAllDocuments = async (): Promise<Document[]> => {
     }
     
     console.log(`Successfully fetched ${documents.length} documents:`, documents);
-    const formattedDocuments = documents.map(doc => formatDocumentFromSupabase(doc));
+    
+    // Fetch additional data separately instead of using relationships
+    const docsWithDetails = await Promise.all(
+      documents.map(async (doc) => {
+        // Fetch validation issues
+        const { data: validationIssues } = await supabase
+          .from('validation_issues')
+          .select('*')
+          .eq('document_id', doc.id);
+          
+        // Fetch document content
+        const { data: contentData } = await supabase
+          .from('document_content')
+          .select('content, raw_text')
+          .eq('document_id', doc.id)
+          .maybeSingle();
+          
+        // Combine all data
+        const enrichedDoc = {
+          ...doc,
+          validation_issues: validationIssues || [],
+          document_content: contentData || { content: {}, raw_text: null },
+          // We're not using verified_by since we don't have that relationship
+          verified_by: null
+        };
+        
+        return enrichedDoc;
+      })
+    );
+    
+    const formattedDocuments = docsWithDetails.map(doc => formatDocumentFromSupabase(doc));
     console.log('Formatted documents:', formattedDocuments);
     return formattedDocuments;
   } catch (error) {
@@ -76,16 +99,16 @@ export const getAllDocuments = async (): Promise<Document[]> => {
   }
 };
 
-// Get documents by status with enhanced error handling and logging
+// Get documents by status with the same fix applied
 export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Document[]> => {
   try {
-    console.log(`Fetching documents with status: ${status} - debug version`);
+    console.log(`Fetching documents with status: ${status}`);
     
     // First check if we're authenticated
     const { data: authData } = await supabase.auth.getSession();
     console.log('Current auth status:', authData?.session ? 'Authenticated' : 'Not authenticated');
     
-    // First run a count query to see if documents with this status exist
+    // Get the document count
     const { count, error: countError } = await supabase
       .from('documents')
       .select('*', { count: 'exact', head: true })
@@ -97,20 +120,15 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
       console.log(`${status} document count: ${count !== null ? count : 'unknown'}`);
     }
     
+    // Use a simpler query that doesn't rely on relationships that might not exist
     const { data: documents, error } = await supabase
       .from('documents')
-      .select(`
-        *,
-        validation_issues (*),
-        document_content (content, raw_text),
-        verified_by:profiles(username, full_name)
-      `)
+      .select('*')
       .eq('status', status)
       .order('last_updated', { ascending: false });
       
     if (error) {
       console.error(`Error in getDocumentsByStatus(${status}):`, error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
       return [];
     }
     
@@ -124,9 +142,35 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
       return [];
     }
     
-    console.log(`Found ${documents.length} ${status} documents:`, documents);
-    const formattedDocuments = documents.map(doc => formatDocumentFromSupabase(doc));
-    console.log(`Formatted ${status} documents:`, formattedDocuments);
+    // Fetch additional data separately instead of using relationships
+    const docsWithDetails = await Promise.all(
+      documents.map(async (doc) => {
+        // Fetch validation issues
+        const { data: validationIssues } = await supabase
+          .from('validation_issues')
+          .select('*')
+          .eq('document_id', doc.id);
+          
+        // Fetch document content
+        const { data: contentData } = await supabase
+          .from('document_content')
+          .select('content, raw_text')
+          .eq('document_id', doc.id)
+          .maybeSingle();
+          
+        // Combine all data
+        const enrichedDoc = {
+          ...doc,
+          validation_issues: validationIssues || [],
+          document_content: contentData || { content: {}, raw_text: null },
+          verified_by: null
+        };
+        
+        return enrichedDoc;
+      })
+    );
+    
+    const formattedDocuments = docsWithDetails.map(doc => formatDocumentFromSupabase(doc));
     return formattedDocuments;
   } catch (error) {
     console.error(`Error fetching ${status} documents:`, error);
@@ -134,19 +178,15 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
   }
 };
 
-// Get document by ID with enhanced error handling and logging
+// Get document by ID with the same fix applied
 export const getDocumentById = async (id: string): Promise<Document | null> => {
   try {
     console.log(`Fetching document with ID: ${id}`);
     
+    // Query for the main document
     const { data: document, error } = await supabase
       .from('documents')
-      .select(`
-        *,
-        validation_issues (*),
-        document_content (content, raw_text),
-        verified_by:profiles(username, full_name)
-      `)
+      .select('*')
       .eq('id', id)
       .maybeSingle();
       
@@ -161,8 +201,28 @@ export const getDocumentById = async (id: string): Promise<Document | null> => {
       return null;
     }
     
-    console.log(`Found document: ${document.title}`, document);
-    return formatDocumentFromSupabase(document);
+    // Fetch validation issues
+    const { data: validationIssues } = await supabase
+      .from('validation_issues')
+      .select('*')
+      .eq('document_id', id);
+    
+    // Fetch document content
+    const { data: contentData } = await supabase
+      .from('document_content')
+      .select('content, raw_text')
+      .eq('document_id', id)
+      .maybeSingle();
+      
+    // Combine all data
+    const enrichedDoc = {
+      ...document,
+      validation_issues: validationIssues || [],
+      document_content: contentData || { content: {}, raw_text: null },
+      verified_by: null
+    };
+    
+    return formatDocumentFromSupabase(enrichedDoc);
   } catch (error) {
     console.error('Error fetching document details:', error);
     toast.error('Failed to load document details');
@@ -170,21 +230,17 @@ export const getDocumentById = async (id: string): Promise<Document | null> => {
   }
 };
 
-// Search documents with enhanced error handling and logging
+// Search documents with the same fix applied
 export const searchDocuments = async (query: string): Promise<Document[]> => {
   if (!query) return getAllDocuments();
   
   try {
     console.log(`Searching documents with query: ${query}`);
     
+    // Use a simpler query that doesn't rely on relationships that might not exist
     const { data: documents, error } = await supabase
       .from('documents')
-      .select(`
-        *,
-        validation_issues (*),
-        document_content (content, raw_text),
-        verified_by:profiles(username, full_name)
-      `)
+      .select('*')
       .or(`title.ilike.%${query}%,type.ilike.%${query}%`)
       .order('last_updated', { ascending: false });
       
@@ -199,8 +255,36 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
       return [];
     }
     
-    console.log(`Found ${documents.length} matching documents:`, documents);
-    return documents.map(doc => formatDocumentFromSupabase(doc));
+    // Fetch additional data separately instead of using relationships
+    const docsWithDetails = await Promise.all(
+      documents.map(async (doc) => {
+        // Fetch validation issues
+        const { data: validationIssues } = await supabase
+          .from('validation_issues')
+          .select('*')
+          .eq('document_id', doc.id);
+          
+        // Fetch document content
+        const { data: contentData } = await supabase
+          .from('document_content')
+          .select('content, raw_text')
+          .eq('document_id', doc.id)
+          .maybeSingle();
+          
+        // Combine all data
+        const enrichedDoc = {
+          ...doc,
+          validation_issues: validationIssues || [],
+          document_content: contentData || { content: {}, raw_text: null },
+          verified_by: null
+        };
+        
+        return enrichedDoc;
+      })
+    );
+    
+    const formattedDocuments = docsWithDetails.map(doc => formatDocumentFromSupabase(doc));
+    return formattedDocuments;
   } catch (error) {
     console.error('Error searching documents:', error);
     toast.error('Search failed');
@@ -211,7 +295,7 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
 // Create sample documents for testing with more robust implementation
 export const createSampleDocuments = async (): Promise<void> => {
   try {
-    console.log('Creating sample documents for testing - debug version');
+    console.log('Creating sample documents for testing');
     
     // First check if we're authenticated
     const { data: authData } = await supabase.auth.getSession();
@@ -293,7 +377,6 @@ export const createSampleDocuments = async (): Promise<void> => {
       
     if (error) {
       console.error('Error creating sample documents:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
       throw error;
     }
     

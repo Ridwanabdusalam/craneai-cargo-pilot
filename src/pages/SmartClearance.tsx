@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
@@ -99,7 +98,7 @@ const SmartClearance = () => {
     }
   }, [activeTab, searchQuery, fetchError, fetchTrigger]); 
   
-  // Initial data fetch
+  // Initial data fetch on component mount and when tab/fetch trigger changes
   useEffect(() => {
     console.log('Initial document fetch triggered', { fetchTrigger });
     fetchDocuments();
@@ -226,19 +225,13 @@ const SmartClearance = () => {
     setFetchTrigger(prev => prev + 1);
   };
 
-  // Force an initial fetch on component mount and add periodic refresh
+  // Force an initial fetch on component mount only
   useEffect(() => {
     // Force first fetch
     console.log('SmartClearance component mounted - forcing initial document fetch');
     fetchDocuments();
     
-    // Set up a periodic refresh every 30 seconds
-    const refreshInterval = setInterval(() => {
-      console.log('Periodic document refresh triggered');
-      fetchDocuments();
-    }, 30000);
-    
-    return () => clearInterval(refreshInterval);
+    // No periodic refresh as per user's request
   }, []);
 
   // Redirect to the clearance page if we're on the root route
