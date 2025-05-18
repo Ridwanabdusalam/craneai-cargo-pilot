@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,8 +12,11 @@ import {
   Lock,
   Database,
   Monitor,
-  Plugin,
-  RefreshCcw
+  Plug, // Changed from Plugin
+  RefreshCcw,
+  FileText, // Explicitly imported
+  BarChart3, // Explicitly imported
+  MessageSquare // Explicitly imported
 } from 'lucide-react';
 import {
   Select,
@@ -47,7 +49,7 @@ const Settings = () => {
             AI Settings
           </TabsTrigger>
           <TabsTrigger value="integrations" className="rounded-none border-b-2 border-transparent py-3 px-6 data-[state=active]:border-b-crane-blue data-[state=active]:bg-transparent">
-            <Plugin size={16} className="mr-2" />
+            <Plug size={16} className="mr-2" />
             Integrations
           </TabsTrigger>
         </TabsList>
