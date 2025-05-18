@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
@@ -72,7 +73,7 @@ const SmartClearance = () => {
   };
   
   // Apply filters based on active tab and search query
-  const applyFilters = async () => {
+  const applyFilters = () => {
     let filtered: Document[] = [];
     
     try {
@@ -112,12 +113,20 @@ const SmartClearance = () => {
   // Handle document upload
   const handleUploadComplete = () => {
     setIsUploadOpen(false);
-    toast.success('Document uploaded successfully!');
     
     // Fetch latest documents after a short delay to ensure the backend has processed the upload
     setTimeout(() => {
-      fetchDocuments();
-    }, 500);
+      fetchDocuments()
+        .then(() => {
+          // Only show success toast after documents are successfully fetched
+          toast.success('Document uploaded successfully!');
+        })
+        .catch(error => {
+          console.error('Error refreshing documents after upload:', error);
+          // Still show upload success, but note refresh issue
+          toast.success('Document uploaded successfully! Please refresh to see updates.');
+        });
+    }, 1000); // Increased delay to 1 second to allow for backend processing
   };
   
   // Handle view document details

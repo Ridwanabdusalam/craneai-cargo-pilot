@@ -19,13 +19,18 @@ export const getAllDocuments = async (): Promise<Document[]> => {
       .order('last_updated', { ascending: false });
       
     if (error) {
+      console.error('Error in getAllDocuments:', error);
       throw error;
+    }
+    
+    if (!documents) {
+      return [];
     }
     
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error('Error fetching documents:', error);
-    toast.error('Failed to load documents');
+    // Don't show a toast here - let the calling component handle UI notifications
     return [];
   }
 };
@@ -46,13 +51,18 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
       .order('last_updated', { ascending: false });
       
     if (error) {
+      console.error(`Error in getDocumentsByStatus(${status}):`, error);
       throw error;
+    }
+    
+    if (!documents) {
+      return [];
     }
     
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error(`Error fetching ${status} documents:`, error);
-    toast.error(`Failed to load ${status} documents`);
+    // Let the calling component handle UI notifications
     return [];
   }
 };
@@ -73,13 +83,18 @@ export const getDocumentById = async (id: string): Promise<Document | null> => {
       .single();
       
     if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned - document not found
+        return null;
+      }
+      console.error('Error in getDocumentById:', error);
       throw error;
     }
     
     return formatDocumentFromSupabase(document);
   } catch (error) {
     console.error('Error fetching document details:', error);
-    toast.error('Failed to load document details');
+    // Let the calling component handle UI notifications
     return null;
   }
 };
@@ -102,13 +117,18 @@ export const searchDocuments = async (query: string): Promise<Document[]> => {
       .order('last_updated', { ascending: false });
       
     if (error) {
+      console.error('Error in searchDocuments:', error);
       throw error;
+    }
+    
+    if (!documents) {
+      return [];
     }
     
     return documents.map(doc => formatDocumentFromSupabase(doc));
   } catch (error) {
     console.error('Error searching documents:', error);
-    toast.error('Failed to search documents');
+    // Let the calling component handle UI notifications
     return [];
   }
 };

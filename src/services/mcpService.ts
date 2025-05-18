@@ -25,10 +25,15 @@ export const queryWithContext = async (query: string, contextTypes: string[] = [
     }
     
     if (error) {
+      console.error('Error calling Model Context Protocol:', error);
       throw error;
     }
     
-    return data?.response || 'Sorry, I could not generate a response.';
+    if (!data || !data.response) {
+      throw new Error('No response data received from AI');
+    }
+    
+    return data.response;
   } catch (error) {
     console.error('Error calling Model Context Protocol:', error);
     toast.error('Failed to get AI response');
@@ -39,20 +44,28 @@ export const queryWithContext = async (query: string, contextTypes: string[] = [
 // Seed the knowledge base with logistics domain knowledge and website content
 export const seedKnowledgeBase = async (): Promise<boolean> => {
   try {
+    const toastId = toast.loading('Seeding knowledge base...');
+    
     const { data, error } = await supabase.functions.invoke('seed-knowledge-base', {
       body: {
         includeWebsiteContent: true // Include crawled website content
       }
     });
     
+    toast.dismiss(toastId);
+    
     if (error) {
+      console.error('Error seeding knowledge base:', error);
+      toast.error('Failed to seed knowledge base');
       throw error;
     }
     
+    toast.success('Knowledge base updated successfully');
     console.log('Knowledge base seeding result:', data);
     return true;
   } catch (error) {
     console.error('Error seeding knowledge base:', error);
+    toast.error('Failed to seed knowledge base');
     return false;
   }
 };
@@ -60,20 +73,33 @@ export const seedKnowledgeBase = async (): Promise<boolean> => {
 // Get all context source types (for filtering)
 export const getContextSourceTypes = async (): Promise<string[]> => {
   try {
-    // Fix: Use a different approach to get distinct values
+    // Use a different approach to get distinct values
     const { data, error } = await supabase
       .from('context_sources')
       .select('source_type');
       
     if (error) {
+      console.error('Error fetching context source types:', error);
       throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      console.warn('No context source types found');
+      return ['company_info', 'services', 'industry', 'technology', 'compliance', 'website_content'];
     }
     
     // Manually get unique source types from the results
     const uniqueTypes = new Set<string>();
-    data.forEach(row => uniqueTypes.add(row.source_type));
+    data.forEach(row => {
+      if (row.source_type) {
+        uniqueTypes.add(row.source_type);
+      }
+    });
     
-    return Array.from(uniqueTypes);
+    const typeArray = Array.from(uniqueTypes);
+    return typeArray.length > 0 
+      ? typeArray 
+      : ['company_info', 'services', 'industry', 'technology', 'compliance', 'website_content'];
   } catch (error) {
     console.error('Error fetching context source types:', error);
     return ['company_info', 'services', 'industry', 'technology', 'compliance', 'website_content'];

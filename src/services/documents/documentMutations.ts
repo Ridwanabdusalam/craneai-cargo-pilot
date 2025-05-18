@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ValidationResult } from '@/types/documents';
@@ -15,6 +14,7 @@ export const uploadDocument = async (file: File, title: string): Promise<any> =>
       .upload(filePath, file);
       
     if (uploadError) {
+      console.error('Error uploading file to storage:', uploadError);
       throw uploadError;
     }
     
@@ -33,15 +33,20 @@ export const uploadDocument = async (file: File, title: string): Promise<any> =>
       .single();
       
     if (documentError) {
+      console.error('Error creating document record:', documentError);
       throw documentError;
     }
     
-    // 3. Start document processing via edge function
-    const { error: processingError } = await supabase.functions.invoke('process-document', {
-      body: { documentId: document.id }
-    });
+    if (!document) {
+      throw new Error('Document created but no data returned');
+    }
     
-    if (processingError) {
+    // 3. Start document processing via edge function
+    try {
+      await supabase.functions.invoke('process-document', {
+        body: { documentId: document.id }
+      });
+    } catch (processingError) {
       console.error("Error starting document processing:", processingError);
       // Continue anyway - the document is uploaded, we can try processing again later
     }
@@ -63,8 +68,7 @@ export const uploadDocument = async (file: File, title: string): Promise<any> =>
     };
   } catch (error) {
     console.error('Error uploading document:', error);
-    toast.error('Failed to upload document');
-    throw error;
+    throw error; // Let the calling component handle UI notifications
   }
 };
 

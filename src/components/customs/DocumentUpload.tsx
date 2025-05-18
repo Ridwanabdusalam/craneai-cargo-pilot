@@ -112,7 +112,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
       clearInterval(interval);
       
       // Let the parent component know that upload is complete
-      // but don't show a toast message here - SmartClearance will handle that
+      // Don't show toast here - the parent component (SmartClearance) will handle that
       if (onUploadComplete) {
         onUploadComplete();
       }
