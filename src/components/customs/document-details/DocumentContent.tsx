@@ -200,9 +200,11 @@ const formatValue = (value: any): string => {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'number' && !isNaN(value)) {
     // Format currency-like numbers
-    if (key && key.toLowerCase().includes('amount') || 
-        key && key.toLowerCase().includes('price') || 
-        key && key.toLowerCase().includes('cost')) {
+    if (value && (
+        typeof value === 'number' && 
+        value.toString().includes('.') && 
+        value.toString().split('.')[1].length <= 2
+      )) {
       return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     }
     // Format other numbers
