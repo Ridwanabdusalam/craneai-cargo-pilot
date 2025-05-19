@@ -1,22 +1,22 @@
-# Welcome to your ridwan project
+# Welcome to my craneai project
 
 ## Project info
 
-**URL**: https://ridwan.dev/projects/1df82b8d-51ff-4615-a877-d20622449258
+**URL**: https://craneai.dev/projects/1df82b8d-51ff-4615-a877-d20622449258
 
 ## How can I edit this code?
 
 There are several ways of editing your application.
 
-**Use ridwan**
+**Use craneai**
 
-Simply visit the [ridwan Project](https://ridwan.dev/projects/1df82b8d-51ff-4615-a877-d20622449258) and start prompting.
+Simply visit the [craneai Project](https://craneai.dev/projects/1df82b8d-51ff-4615-a877-d20622449258) and start prompting.
 
-Changes made via ridwan will be committed automatically to this repo.
+Changes made via craneai will be committed automatically to this repo.
 
 **Use your preferred IDE**
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in ridwan.
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in craneai.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -62,12 +62,12 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [ridwan](https://ridwan.dev/projects/1df82b8d-51ff-4615-a877-d20622449258) and click on Share -> Publish.
+Simply open [craneai](https://craneai.dev/projects/1df82b8d-51ff-4615-a877-d20622449258) and click on Share -> Publish.
 
-## Can I connect a custom domain to my ridwan project?
+## Can I connect a custom domain to my craneai project?
 
 Yes, you can!
 
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
-Read more here: [Setting up a custom domain](https://docs.ridwan.dev/tips-tricks/custom-domain#step-by-step-guide)
+Read more here: [Setting up a custom domain](https://docs.craneai.dev/tips-tricks/custom-domain#step-by-step-guide)
