@@ -11,10 +11,12 @@ interface DocumentContentProps {
 }
 
 export const DocumentContent: React.FC<DocumentContentProps> = ({ content, status }) => {
-  // Enhanced logging to debug the content structure
-  console.log("DocumentContent received:", content);
+  // Comprehensive logging to debug the content structure
+  console.log("DocumentContent component received:", content);
+  console.log("Content type:", typeof content);
+  console.log("Content keys:", Object.keys(content));
   
-  // First check if we have an error in the content
+  // Handle error content
   if (content && content.error) {
     return (
       <Alert variant="destructive" className="my-4">
@@ -26,16 +28,38 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
   
-  // Simplified content validation - check if we have a non-empty object with keys
-  const hasContent = content && 
-    typeof content === 'object' && 
-    Object.keys(content).length > 0;
+  // If status is still processing, show a processing message
+  if (status === 'processing') {
+    return (
+      <div className="text-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p className="text-muted-foreground">Processing document content...</p>
+      </div>
+    );
+  }
   
-  if (hasContent) {
+  // Handle raw text display if that's all we have
+  if (content && content.raw_text && Object.keys(content).length === 1) {
+    return (
+      <div className="p-4 border rounded-md">
+        <h3 className="text-lg font-medium mb-4">Document Text</h3>
+        <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-sm">
+          {content.raw_text}
+        </pre>
+      </div>
+    );
+  }
+  
+  // Check if we have actual content to display
+  const hasDisplayableContent = content && 
+    typeof content === 'object' && 
+    Object.keys(content).filter(key => key !== 'raw_text' && key !== 'error').length > 0;
+  
+  if (hasDisplayableContent) {
     return renderStructuredContent(content);
   }
   
-  // If no content is available, show an empty state
+  // No content available
   return (
     <div className="text-center p-8">
       <p className="text-muted-foreground">No content available for this document.</p>
@@ -73,12 +97,12 @@ const renderStructuredContent = (content: Record<string, any>) => {
               </div>
             );
           } 
-          // Handle arrays with special case for items array
+          // Handle arrays - show as tables if they contain objects
           else if (Array.isArray(value)) {
             return (
               <div key={key} className="border rounded-md p-4">
                 <h4 className="font-medium text-md mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</h4>
-                {value.length > 0 ? (
+                {value.length > 0 && typeof value[0] === 'object' ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -93,14 +117,20 @@ const renderStructuredContent = (content: Record<string, any>) => {
                       {value.map((item, index) => (
                         <TableRow key={index}>
                           {Object.values(item).map((val, idx) => (
-                            <TableCell key={idx}>{String(val)}</TableCell>
+                            <TableCell key={idx}>{typeof val === 'object' ? JSON.stringify(val) : String(val)}</TableCell>
                           ))}
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No items available</p>
+                  <div className="pl-4 border-l-2 border-muted space-y-1">
+                    {value.map((item, index) => (
+                      <div key={index} className="text-sm">
+                        {typeof item === 'object' ? JSON.stringify(item) : String(item)}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             );

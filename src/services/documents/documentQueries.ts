@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Document, DocumentStatus } from '@/types/documents';
 import { formatDocumentFromSupabase } from './documentFormatters';
@@ -42,7 +41,7 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
   }
 };
 
-// Get document by ID with enhanced content selection logic
+// Get document by ID with enhanced content extraction
 export const getDocumentById = async (id: string): Promise<Document> => {
   try {
     console.log(`Fetching document with ID: ${id}`);
@@ -73,7 +72,7 @@ export const getDocumentById = async (id: string): Promise<Document> => {
     
     console.log('Validation issues fetched:', validationIssues?.length || 0);
 
-    // Get document content with improved selection logic 
+    // Get document content with improved extraction
     const { data: contentData, error: contentError } = await supabase
       .from('document_content')
       .select('*')
@@ -87,52 +86,66 @@ export const getDocumentById = async (id: string): Promise<Document> => {
       console.log('Document content fetched:', contentData && contentData.length > 0 ? 'Content available' : 'No content');
       if (contentData && contentData.length > 0) {
         console.log('Content keys:', Object.keys(contentData[0]));
-        console.log('Content object preview:', 
-          contentData[0].content 
-            ? JSON.stringify(contentData[0].content).substring(0, 100) + '...' 
-            : 'Empty content object'
-        );
-        console.log('Raw text preview:', 
-          contentData[0].raw_text 
-            ? contentData[0].raw_text.substring(0, 100) + '...' 
-            : 'No raw text'
-        );
+        
+        // Log more detailed information about the content structure
+        if (contentData[0].content) {
+          console.log('Content type:', typeof contentData[0].content);
+          if (typeof contentData[0].content === 'object') {
+            console.log('Content keys:', Object.keys(contentData[0].content));
+          } else {
+            console.log('Content is not an object, might need parsing');
+          }
+        }
+        
+        // Log raw text info
+        if (contentData[0].raw_text) {
+          console.log('Raw text length:', contentData[0].raw_text.length);
+          console.log('Raw text preview:', contentData[0].raw_text.substring(0, 100));
+        }
       }
     }
 
-    // Safely handle content extraction with more logging
+    // Enhanced content extraction with better error handling
     let contentObject = {};
-    let rawText = '';
     
     if (contentData && contentData.length > 0) {
+      // Try to extract content from the content field first
       if (contentData[0].content) {
         try {
           if (typeof contentData[0].content === 'string') {
+            // If it's a string, try to parse it
             contentObject = JSON.parse(contentData[0].content);
             console.log('Parsed content from string');
-          } else {
+          } else if (typeof contentData[0].content === 'object') {
+            // If it's already an object, use it directly
             contentObject = contentData[0].content;
             console.log('Using content object directly');
           }
         } catch (e) {
-          console.error('Error parsing content as JSON:', e);
-          contentObject = { error: 'Failed to parse content' };
+          console.error('Error handling content:', e);
+          contentObject = { error: 'Failed to process content data' };
         }
       }
       
-      if (contentData[0].raw_text) {
-        rawText = contentData[0].raw_text;
-        console.log('Raw text length:', rawText.length);
+      // If we don't have content object but have raw_text, try to use that
+      if (Object.keys(contentObject).length === 0 && contentData[0].raw_text) {
+        try {
+          const parsed = JSON.parse(contentData[0].raw_text);
+          contentObject = parsed;
+          console.log('Extracted content from raw_text');
+        } catch (e) {
+          console.error('Error parsing raw_text:', e);
+          contentObject = { raw_text: contentData[0].raw_text };
+        }
       }
     }
 
+    console.log('Final content object:', contentObject);
+    
     // Format document with available data
     const formattedDocument = formatDocumentFromSupabase({
       ...documentData,
-      content: {
-        ...(typeof contentObject === 'object' ? contentObject : {}),
-        raw_text: rawText
-      },
+      content: contentObject,
       validationIssues: validationIssues || [],
       validationChecks: [] // Use empty array since validation_checks table doesn't exist
     });
