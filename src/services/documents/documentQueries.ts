@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Document, DocumentStatus } from '@/types/documents';
@@ -178,7 +177,7 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
   }
 };
 
-// Get document by ID with the same fix applied
+// Get document by ID with improved content selection logic
 export const getDocumentById = async (id: string): Promise<Document | null> => {
   try {
     console.log(`Fetching document with ID: ${id}`);
@@ -207,26 +206,40 @@ export const getDocumentById = async (id: string): Promise<Document | null> => {
       .select('*')
       .eq('document_id', id);
     
-    // Fetch document content - get all matching records to ensure we get the one with content
-    const { data: contentRecords } = await supabase
+    // Fetch document content - get all matching records so we can find the one with actual content
+    const { data: contentRecords, error: contentError } = await supabase
       .from('document_content')
-      .select('content, raw_text')
-      .eq('document_id', id);
+      .select('*, created_at')
+      .eq('document_id', id)
+      .order('created_at', { ascending: false });
       
-    // Choose the content record that has data
-    // First try to find a record with raw_text
-    let contentData = contentRecords?.find(record => record.raw_text && record.raw_text !== 'EMPTY');
-    
-    // If no record with raw_text, try to find one with a non-empty content object
-    if (!contentData) {
-      contentData = contentRecords?.find(record => 
-        record.content && Object.keys(record.content).length > 0);
+    if (contentError) {
+      console.error('Error fetching document content:', contentError);
     }
     
-    // If still no valid record, use the first one or create an empty object
-    if (!contentData && contentRecords && contentRecords.length > 0) {
-      contentData = contentRecords[0];
-    } else if (!contentData) {
+    console.log('Found content records:', contentRecords);
+    
+    // Choose the content record that has actual data
+    let contentData = null;
+    
+    if (contentRecords && contentRecords.length > 0) {
+      // First try to find a record with non-empty raw_text
+      contentData = contentRecords.find(record => 
+        record.raw_text && record.raw_text !== 'EMPTY' && record.raw_text.length > 2);
+      
+      // If no record with valid raw_text, try to find one with a non-empty content object
+      if (!contentData) {
+        contentData = contentRecords.find(record => 
+          record.content && typeof record.content === 'object' && 
+          Object.keys(record.content).length > 0 && 
+          JSON.stringify(record.content) !== '{}');
+      }
+      
+      // If still no valid record, use the most recent record
+      if (!contentData) {
+        contentData = contentRecords[0];
+      }
+    } else {
       contentData = { content: {}, raw_text: null };
     }
     
