@@ -11,47 +11,7 @@ interface DocumentContentProps {
 }
 
 export const DocumentContent: React.FC<DocumentContentProps> = ({ content, status }) => {
-  // Helper function to try parsing raw_text
-  const tryParseContent = () => {
-    try {
-      // First check if we have valid data in the content object itself
-      if (content && typeof content === 'object' && Object.keys(content).filter(key => key !== 'raw_text' && key !== 'error').length > 0) {
-        console.log('Using content object directly:', content);
-        return content;
-      }
-      
-      // Then try parsing raw_text if available
-      if (content?.raw_text && typeof content.raw_text === 'string' && content.raw_text.trim() !== '' && content.raw_text !== 'EMPTY') {
-        try {
-          // If raw_text exists, attempt to parse it
-          const parsed = JSON.parse(content.raw_text);
-          console.log('Successfully parsed raw_text:', parsed);
-          return parsed;
-        } catch (e) {
-          console.error('Failed to parse raw_text as JSON:', e);
-          // If parsing fails, just return null to display the raw text directly
-          return null;
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      console.error("Error in tryParseContent:", error);
-      return null;
-    }
-  };
-  
-  // Check if the document is still in the processing state
-  if (status === 'processing') {
-    return (
-      <div className="text-center p-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-        <p className="text-muted-foreground">Document content is being processed...</p>
-      </div>
-    );
-  }
-  
-  // Check for error state
+  // First check if we have an error in the content
   if (content && content.error) {
     return (
       <Alert variant="destructive" className="my-4">
@@ -62,93 +22,67 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
       </Alert>
     );
   }
-
-  // Try to get content, either from raw_text or content object
-  const parsedContent = tryParseContent();
   
-  // If parsing succeeded, display the structured content
-  if (parsedContent) {
-    return (
-      <div className="p-4 border rounded-md">
-        <h3 className="text-lg font-medium mb-4">Document Content</h3>
-        <div className="space-y-6">
-          {Object.entries(parsedContent).map(([key, value]) => {
-            // Skip raw_text and error fields
-            if (key === 'error' || key === 'raw_text') {
-              return null;
-            }
-            
-            // Handle nested objects
-            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-              return (
-                <div key={key} className="border rounded-md p-4">
-                  <h4 className="font-medium text-md mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</h4>
-                  <div className="space-y-2">
-                    {Object.entries(value as Record<string, any>).map(([subKey, subValue]) => (
-                      <div key={`${key}-${subKey}`} className="flex justify-between border-b pb-1">
-                        <span className="text-muted-foreground capitalize text-sm">{subKey.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
-                        <span className="text-sm font-medium">{String(subValue)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            } 
-            // Handle arrays
-            else if (Array.isArray(value)) {
-              return (
-                <div key={key} className="border rounded-md p-4">
-                  <h4 className="font-medium text-md mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</h4>
-                  {value.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {Object.keys(value[0]).map((header) => (
-                            <TableHead key={header} className="capitalize">
-                              {header.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {value.map((item, index) => (
-                          <TableRow key={index}>
-                            {Object.values(item).map((val, idx) => (
-                              <TableCell key={idx}>{String(val)}</TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No items available</p>
-                  )}
-                </div>
-              );
-            } 
-            // Handle simple key-value pairs
-            else {
-              return (
-                <div key={key} className="flex justify-between border-b pb-2">
-                  <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
-                  <span className="font-medium">{String(value)}</span>
-                </div>
-              );
-            }
-          })}
-        </div>
-      </div>
-    );
+  // Check if we have any valid content to display
+  const hasValidContent = content && 
+    ((typeof content === 'object' && 
+      Object.keys(content).filter(key => key !== 'raw_text' && key !== 'error').length > 0) ||
+     (content.raw_text && typeof content.raw_text === 'string' && 
+      content.raw_text.trim() !== '' && content.raw_text !== 'EMPTY'));
+  
+  // If we have valid content, display it regardless of status
+  if (hasValidContent) {
+    // Helper function to try parsing the content object
+    const displayContent = () => {
+      try {
+        // First check if we have valid data in the content object itself
+        if (content && typeof content === 'object' && Object.keys(content).filter(key => key !== 'raw_text' && key !== 'error').length > 0) {
+          console.log('Using content object directly:', content);
+          return renderStructuredContent(content);
+        }
+        
+        // Then try parsing raw_text if available
+        if (content?.raw_text && typeof content.raw_text === 'string' && content.raw_text.trim() !== '' && content.raw_text !== 'EMPTY') {
+          try {
+            // If raw_text exists, attempt to parse it
+            const parsed = JSON.parse(content.raw_text);
+            console.log('Successfully parsed raw_text:', parsed);
+            return renderStructuredContent(parsed);
+          } catch (e) {
+            console.error('Failed to parse raw_text as JSON:', e);
+            // If parsing fails, just return the raw text directly
+            return (
+              <div className="p-4 border rounded-md">
+                <h3 className="text-lg font-medium mb-4">Raw Document Content</h3>
+                <pre className="bg-muted p-4 rounded-md overflow-auto whitespace-pre-wrap">
+                  {content.raw_text}
+                </pre>
+              </div>
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error displaying content:", error);
+        return (
+          <Alert variant="destructive" className="my-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Error displaying document content: {String(error)}
+            </AlertDescription>
+          </Alert>
+        );
+      }
+    };
+
+    return displayContent();
   }
   
-  // If we have raw_text but couldn't parse it as JSON, display it directly
-  if (content?.raw_text && content.raw_text !== 'EMPTY') {
+  // If status is processing and we have no content yet, show the processing state
+  if (status === 'processing') {
     return (
-      <div className="p-4 border rounded-md">
-        <h3 className="text-lg font-medium mb-4">Raw Document Content</h3>
-        <pre className="bg-muted p-4 rounded-md overflow-auto whitespace-pre-wrap">
-          {content.raw_text}
-        </pre>
+      <div className="text-center p-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <p className="text-muted-foreground">Document content is being processed...</p>
       </div>
     );
   }
@@ -157,6 +91,81 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
   return (
     <div className="text-center p-8">
       <p className="text-muted-foreground">No content available for this document.</p>
+    </div>
+  );
+};
+
+// Helper function to render structured content
+const renderStructuredContent = (content: Record<string, any>) => {
+  return (
+    <div className="p-4 border rounded-md">
+      <h3 className="text-lg font-medium mb-4">Document Content</h3>
+      <div className="space-y-6">
+        {Object.entries(content).map(([key, value]) => {
+          // Skip raw_text and error fields
+          if (key === 'error' || key === 'raw_text') {
+            return null;
+          }
+          
+          // Handle nested objects
+          if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            return (
+              <div key={key} className="border rounded-md p-4">
+                <h4 className="font-medium text-md mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</h4>
+                <div className="space-y-2">
+                  {Object.entries(value as Record<string, any>).map(([subKey, subValue]) => (
+                    <div key={`${key}-${subKey}`} className="flex justify-between border-b pb-1">
+                      <span className="text-muted-foreground capitalize text-sm">{subKey.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
+                      <span className="text-sm font-medium">{String(subValue)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          } 
+          // Handle arrays
+          else if (Array.isArray(value)) {
+            return (
+              <div key={key} className="border rounded-md p-4">
+                <h4 className="font-medium text-md mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</h4>
+                {value.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {Object.keys(value[0]).map((header) => (
+                          <TableHead key={header} className="capitalize">
+                            {header.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {value.map((item, index) => (
+                        <TableRow key={index}>
+                          {Object.values(item).map((val, idx) => (
+                            <TableCell key={idx}>{String(val)}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No items available</p>
+                )}
+              </div>
+            );
+          } 
+          // Handle simple key-value pairs
+          else {
+            return (
+              <div key={key} className="flex justify-between border-b pb-2">
+                <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
+                <span className="font-medium">{String(value)}</span>
+              </div>
+            );
+          }
+        })}
+      </div>
     </div>
   );
 };

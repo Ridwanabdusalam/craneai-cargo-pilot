@@ -45,6 +45,8 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
 // Get document by ID with enhanced content selection logic
 export const getDocumentById = async (id: string): Promise<Document> => {
   try {
+    console.log(`Fetching document with ID: ${id}`);
+    
     // First, get the document metadata
     const { data: documentData, error: documentError } = await supabase
       .from('documents')
@@ -53,8 +55,11 @@ export const getDocumentById = async (id: string): Promise<Document> => {
       .single();
 
     if (documentError) {
+      console.error('Error fetching document metadata:', documentError);
       throw documentError;
     }
+    
+    console.log('Document metadata fetched:', documentData);
 
     // Get validation issues for this document
     const { data: validationIssues, error: issuesError } = await supabase
@@ -65,6 +70,8 @@ export const getDocumentById = async (id: string): Promise<Document> => {
     if (issuesError) {
       console.error('Error fetching validation issues:', issuesError);
     }
+    
+    console.log('Validation issues fetched:', validationIssues?.length || 0);
 
     // Get document content with improved selection logic 
     const { data: contentData, error: contentError } = await supabase
@@ -76,27 +83,63 @@ export const getDocumentById = async (id: string): Promise<Document> => {
 
     if (contentError) {
       console.error('Error fetching document content:', contentError);
+    } else {
+      console.log('Document content fetched:', contentData && contentData.length > 0 ? 'Content available' : 'No content');
+      if (contentData && contentData.length > 0) {
+        console.log('Content keys:', Object.keys(contentData[0]));
+        console.log('Content object preview:', 
+          contentData[0].content 
+            ? JSON.stringify(contentData[0].content).substring(0, 100) + '...' 
+            : 'Empty content object'
+        );
+        console.log('Raw text preview:', 
+          contentData[0].raw_text 
+            ? contentData[0].raw_text.substring(0, 100) + '...' 
+            : 'No raw text'
+        );
+      }
     }
 
-    // Safely handle content extraction
-    const contentObject = contentData && contentData.length > 0 && contentData[0].content 
-      ? contentData[0].content 
-      : {};
-
-    const rawText = contentData && contentData.length > 0 && contentData[0].raw_text
-      ? contentData[0].raw_text
-      : '';
+    // Safely handle content extraction with more logging
+    let contentObject = {};
+    let rawText = '';
+    
+    if (contentData && contentData.length > 0) {
+      if (contentData[0].content) {
+        try {
+          if (typeof contentData[0].content === 'string') {
+            contentObject = JSON.parse(contentData[0].content);
+            console.log('Parsed content from string');
+          } else {
+            contentObject = contentData[0].content;
+            console.log('Using content object directly');
+          }
+        } catch (e) {
+          console.error('Error parsing content as JSON:', e);
+          contentObject = { error: 'Failed to parse content' };
+        }
+      }
+      
+      if (contentData[0].raw_text) {
+        rawText = contentData[0].raw_text;
+        console.log('Raw text length:', rawText.length);
+      }
+    }
 
     // Format document with available data
-    return formatDocumentFromSupabase({
+    const formattedDocument = formatDocumentFromSupabase({
       ...documentData,
       content: {
-        raw_text: rawText,
-        ...(typeof contentObject === 'object' ? contentObject : {})
+        ...(typeof contentObject === 'object' ? contentObject : {}),
+        raw_text: rawText
       },
       validationIssues: validationIssues || [],
       validationChecks: [] // Use empty array since validation_checks table doesn't exist
     });
+    
+    console.log('Document formatted and ready to return');
+    
+    return formattedDocument;
   } catch (error) {
     console.error('Error fetching document by ID:', error);
     throw error;
