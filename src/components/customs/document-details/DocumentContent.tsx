@@ -28,8 +28,9 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
   
-  // If status is still processing, show a processing message
-  if (status === 'processing') {
+  // MODIFIED: Only show processing indicator if status is processing AND we have no content
+  // This allows showing content even during processing if it's available
+  if (status === 'processing' && (!content || Object.keys(content).filter(key => key !== 'error').length === 0)) {
     return (
       <div className="text-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
