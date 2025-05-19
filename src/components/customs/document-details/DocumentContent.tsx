@@ -11,7 +11,7 @@ interface DocumentContentProps {
 }
 
 export const DocumentContent: React.FC<DocumentContentProps> = ({ content, status }) => {
-  // Log the content received to help with debugging
+  // Enhanced logging to debug the content structure
   console.log("DocumentContent received:", content);
   
   // First check if we have an error in the content
@@ -26,61 +26,16 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
   
-  // Check if we have any valid content to display
-  const hasValidContent = content && 
-    ((typeof content === 'object' && 
-      Object.keys(content).filter(key => key !== 'raw_text' && key !== 'error').length > 0) ||
-     (content.raw_text && typeof content.raw_text === 'string' && 
-      content.raw_text.trim() !== '' && content.raw_text !== 'EMPTY'));
+  // Simplified content validation - check if we have a non-empty object with keys
+  const hasContent = content && 
+    typeof content === 'object' && 
+    Object.keys(content).length > 0;
   
-  // Always try to display content if it exists
-  if (hasValidContent) {
-    // Helper function to try parsing the content object
-    const displayContent = () => {
-      try {
-        // First check if we have valid data in the content object itself
-        if (content && typeof content === 'object' && Object.keys(content).filter(key => key !== 'raw_text' && key !== 'error').length > 0) {
-          console.log('Using content object directly:', content);
-          return renderStructuredContent(content);
-        }
-        
-        // Then try parsing raw_text if available
-        if (content?.raw_text && typeof content.raw_text === 'string' && content.raw_text.trim() !== '' && content.raw_text !== 'EMPTY') {
-          try {
-            // If raw_text exists, attempt to parse it
-            const parsed = JSON.parse(content.raw_text);
-            console.log('Successfully parsed raw_text:', parsed);
-            return renderStructuredContent(parsed);
-          } catch (e) {
-            console.error('Failed to parse raw_text as JSON:', e);
-            // If parsing fails, just return the raw text directly
-            return (
-              <div className="p-4 border rounded-md">
-                <h3 className="text-lg font-medium mb-4">Raw Document Content</h3>
-                <pre className="bg-muted p-4 rounded-md overflow-auto whitespace-pre-wrap">
-                  {content.raw_text}
-                </pre>
-              </div>
-            );
-          }
-        }
-      } catch (error) {
-        console.error("Error displaying content:", error);
-        return (
-          <Alert variant="destructive" className="my-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Error displaying document content: {String(error)}
-            </AlertDescription>
-          </Alert>
-        );
-      }
-    };
-
-    return displayContent();
+  if (hasContent) {
+    return renderStructuredContent(content);
   }
   
-  // If no content is available, show an empty state - no spinner regardless of status
+  // If no content is available, show an empty state
   return (
     <div className="text-center p-8">
       <p className="text-muted-foreground">No content available for this document.</p>
@@ -90,6 +45,8 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
 
 // Helper function to render structured content
 const renderStructuredContent = (content: Record<string, any>) => {
+  console.log("Rendering structured content:", content);
+  
   return (
     <div className="p-4 border rounded-md">
       <h3 className="text-lg font-medium mb-4">Document Content</h3>
@@ -116,7 +73,7 @@ const renderStructuredContent = (content: Record<string, any>) => {
               </div>
             );
           } 
-          // Handle arrays
+          // Handle arrays with special case for items array
           else if (Array.isArray(value)) {
             return (
               <div key={key} className="border rounded-md p-4">
