@@ -1,5 +1,7 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { Document, DocumentStatus, formatDocumentFromSupabase } from '@/types/documents';
+import { Document, DocumentStatus } from '@/types/documents';
+import { formatDocumentFromSupabase } from './documentFormatters';
 
 // Get all documents
 export const getAllDocuments = async (): Promise<Document[]> => {
@@ -54,16 +56,6 @@ export const getDocumentById = async (id: string): Promise<Document> => {
       throw documentError;
     }
 
-    // Get validation checks for this document
-    const { data: validationChecks, error: checksError } = await supabase
-      .from('validation_checks')
-      .select('*')
-      .eq('document_id', id);
-
-    if (checksError) {
-      console.error('Error fetching validation checks:', checksError);
-    }
-
     // Get validation issues for this document
     const { data: validationIssues, error: issuesError } = await supabase
       .from('validation_issues')
@@ -101,8 +93,8 @@ export const getDocumentById = async (id: string): Promise<Document> => {
         ...content,
         raw_text: rawText
       },
-      validationChecks: validationChecks || [],
-      validationIssues: validationIssues || []
+      validationIssues: validationIssues || [],
+      validationChecks: [] // Use empty array since validation_checks table doesn't exist
     });
   } catch (error) {
     console.error('Error fetching document by ID:', error);
