@@ -109,30 +109,29 @@ export const getDocumentById = async (id: string): Promise<Document> => {
     let contentObject = {};
     
     if (contentData && contentData.length > 0) {
-      // Try to extract content from the content field first
-      if (contentData[0].content) {
+      console.log('Raw contentData from database:', contentData[0]);
+      
+      // First, try to use the content field directly if it exists and is an object
+      if (contentData[0].content && typeof contentData[0].content === 'object') {
+        contentObject = contentData[0].content;
+        console.log('Using content object directly:', contentObject);
+      } 
+      // If content is a string, try to parse it as JSON
+      else if (contentData[0].content && typeof contentData[0].content === 'string') {
         try {
-          if (typeof contentData[0].content === 'string') {
-            // If it's a string, try to parse it
-            contentObject = JSON.parse(contentData[0].content);
-            console.log('Parsed content from string');
-          } else if (typeof contentData[0].content === 'object') {
-            // If it's already an object, use it directly
-            contentObject = contentData[0].content;
-            console.log('Using content object directly');
-          }
+          contentObject = JSON.parse(contentData[0].content);
+          console.log('Parsed content from string:', contentObject);
         } catch (e) {
-          console.error('Error handling content:', e);
-          contentObject = { error: 'Failed to process content data' };
+          console.error('Error parsing content string:', e);
+          contentObject = { error: 'Failed to parse content' };
         }
       }
-      
-      // If we don't have content object but have raw_text, try to use that
-      if (Object.keys(contentObject).length === 0 && contentData[0].raw_text) {
+      // If we have raw_text but no content, try to parse that
+      else if (contentData[0].raw_text) {
         try {
           const parsed = JSON.parse(contentData[0].raw_text);
           contentObject = parsed;
-          console.log('Extracted content from raw_text');
+          console.log('Parsed content from raw_text:', contentObject);
         } catch (e) {
           console.error('Error parsing raw_text:', e);
           contentObject = { raw_text: contentData[0].raw_text };
@@ -140,17 +139,28 @@ export const getDocumentById = async (id: string): Promise<Document> => {
       }
     }
 
-    console.log('Final content object:', contentObject);
+    console.log('Final content object before formatting:', contentObject);
     
     // Format document with available data
     const formattedDocument = formatDocumentFromSupabase({
       ...documentData,
-      content: contentObject,
-      validationIssues: validationIssues || [],
-      validationChecks: [] // Use empty array since validation_checks table doesn't exist
+      document_content: [
+        {
+          content: contentObject,
+          created_at: new Date().toISOString(),
+          document_id: id,
+          id: 'temp-id',
+          raw_text: contentData?.[0]?.raw_text || ''
+        }
+      ],
+      validation_issues: validationIssues || [],
+      validation_checks: []
     });
     
-    console.log('Document formatted and ready to return');
+    console.log('Formatted document with content:', {
+      hasContent: !!formattedDocument.content,
+      contentKeys: formattedDocument.content ? Object.keys(formattedDocument.content) : []
+    });
     
     return formattedDocument;
   } catch (error) {
