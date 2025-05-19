@@ -78,7 +78,8 @@ export const getDocumentById = async (id: string): Promise<Document> => {
       console.error('Error fetching document content:', contentError);
     }
 
-    const content = contentData && contentData.length > 0 
+    // Safely handle content extraction
+    const contentObject = contentData && contentData.length > 0 && contentData[0].content 
       ? contentData[0].content 
       : {};
 
@@ -90,8 +91,8 @@ export const getDocumentById = async (id: string): Promise<Document> => {
     return formatDocumentFromSupabase({
       ...documentData,
       content: {
-        ...content,
-        raw_text: rawText
+        raw_text: rawText,
+        ...(typeof contentObject === 'object' ? contentObject : {})
       },
       validationIssues: validationIssues || [],
       validationChecks: [] // Use empty array since validation_checks table doesn't exist
