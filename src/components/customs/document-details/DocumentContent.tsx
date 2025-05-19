@@ -30,7 +30,7 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
      (content.raw_text && typeof content.raw_text === 'string' && 
       content.raw_text.trim() !== '' && content.raw_text !== 'EMPTY'));
   
-  // If we have valid content, display it regardless of status
+  // Always try to display content if it exists
   if (hasValidContent) {
     // Helper function to try parsing the content object
     const displayContent = () => {
@@ -77,17 +77,7 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     return displayContent();
   }
   
-  // If status is processing and we have no content yet, show the processing state
-  if (status === 'processing') {
-    return (
-      <div className="text-center p-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-        <p className="text-muted-foreground">Document content is being processed...</p>
-      </div>
-    );
-  }
-
-  // If no content is available, show an empty state
+  // If no content is available, show an empty state - no spinner regardless of status
   return (
     <div className="text-center p-8">
       <p className="text-muted-foreground">No content available for this document.</p>
