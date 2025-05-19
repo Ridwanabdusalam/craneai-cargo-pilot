@@ -7,14 +7,37 @@ export const getAllDocuments = async (): Promise<Document[]> => {
   try {
     const { data, error } = await supabase
       .from('documents')
-      .select('*')
+      .select(`
+        *,
+        document_content (
+          id,
+          content,
+          raw_text,
+          created_at
+        )
+      `)
       .order('last_updated', { ascending: false });
 
     if (error) {
       throw error;
     }
 
-    return data.map(formatDocumentFromSupabase);
+    // Format each document with its content
+    const formattedDocuments = await Promise.all(data.map(async (doc) => {
+      // Find the most recent content
+      const latestContent = doc.document_content && doc.document_content.length > 0
+        ? doc.document_content[0]
+        : null;
+
+      // Format the document with content
+      return formatDocumentFromSupabase({
+        ...doc,
+        document_content: latestContent ? [latestContent] : [],
+        validation_issues: [] // Will be loaded when viewing details
+      });
+    }));
+
+    return formattedDocuments;
   } catch (error) {
     console.error('Error fetching all documents:', error);
     throw error;
@@ -26,7 +49,15 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
   try {
     const { data, error } = await supabase
       .from('documents')
-      .select('*')
+      .select(`
+        *,
+        document_content (
+          id,
+          content,
+          raw_text,
+          created_at
+        )
+      `)
       .eq('status', status)
       .order('last_updated', { ascending: false });
 
@@ -34,7 +65,22 @@ export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Docu
       throw error;
     }
 
-    return data.map(formatDocumentFromSupabase);
+    // Format each document with its content
+    const formattedDocuments = await Promise.all(data.map(async (doc) => {
+      // Find the most recent content
+      const latestContent = doc.document_content && doc.document_content.length > 0
+        ? doc.document_content[0]
+        : null;
+
+      // Format the document with content
+      return formatDocumentFromSupabase({
+        ...doc,
+        document_content: latestContent ? [latestContent] : [],
+        validation_issues: [] // Will be loaded when viewing details
+      });
+    }));
+
+    return formattedDocuments;
   } catch (error) {
     console.error(`Error fetching documents with status ${status}:`, error);
     throw error;
