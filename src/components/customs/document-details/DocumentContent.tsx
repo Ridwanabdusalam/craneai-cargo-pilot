@@ -55,8 +55,17 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
   // Check if we have actual content to display
   const hasDisplayableContent = content && 
     typeof content === 'object' && 
-    Object.keys(content).filter(key => key !== 'raw_text' && key !== 'error').length > 0;
+    Object.keys(content).length > 0 && 
+    !content.error;
   
+  console.log('Document content debug:', {
+    content,
+    keys: content ? Object.keys(content) : [],
+    hasDisplayableContent,
+    hasItems: Array.isArray(content?.items),
+    hasNestedObjects: content && Object.values(content).some(val => typeof val === 'object' && val !== null && !Array.isArray(val))
+  });
+
   if (hasDisplayableContent) {
     return renderEnhancedContent(content);
   }
@@ -66,6 +75,14 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     <div className="text-center p-8">
       <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-2" />
       <p className="text-muted-foreground">No content available for this document.</p>
+      {content && (
+        <div className="mt-4 p-4 bg-muted rounded-md text-left text-sm">
+          <p className="font-medium mb-2">Debug Info - Raw Content:</p>
+          <pre className="whitespace-pre-wrap max-h-96 overflow-y-auto">
+            {JSON.stringify(content, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 };
