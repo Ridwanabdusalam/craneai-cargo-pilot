@@ -55,16 +55,22 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
   // Check if we have actual content to display
   const hasDisplayableContent = content && 
     typeof content === 'object' && 
-    Object.keys(content).length > 0 && 
-    !content.error;
+    (Object.keys(content).length > 0 || content.raw_text);
   
-  console.log('Document content debug:', {
+  console.log('DocumentContent - Content check:', {
     content,
     keys: content ? Object.keys(content) : [],
     hasDisplayableContent,
+    hasRawText: !!content?.raw_text,
     hasItems: Array.isArray(content?.items),
-    hasNestedObjects: content && Object.values(content).some(val => typeof val === 'object' && val !== null && !Array.isArray(val))
+    contentType: typeof content,
+    contentValue: content
   });
+
+  // If we have content but it's an empty object, try to handle it
+  if (content && typeof content === 'object' && Object.keys(content).length === 0) {
+    console.log('Content is an empty object, checking for raw text or other content');
+  }
 
   if (hasDisplayableContent) {
     return renderEnhancedContent(content);
