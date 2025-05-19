@@ -1,9 +1,10 @@
-
 import React from 'react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, FileText } from 'lucide-react';
 import { DocumentContent as DocContent } from '@/types/documents';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface DocumentContentProps {
   content: DocContent;
@@ -28,7 +29,7 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
   
-  // MODIFIED: Only show processing indicator if status is processing AND we have no content
+  // Only show processing indicator if status is processing AND we have no content
   // This allows showing content even during processing if it's available
   if (status === 'processing' && (!content || Object.keys(content).filter(key => key !== 'error').length === 0)) {
     return (
@@ -57,96 +58,155 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     Object.keys(content).filter(key => key !== 'raw_text' && key !== 'error').length > 0;
   
   if (hasDisplayableContent) {
-    return renderStructuredContent(content);
+    return renderEnhancedContent(content);
   }
   
   // No content available
   return (
     <div className="text-center p-8">
+      <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-2" />
       <p className="text-muted-foreground">No content available for this document.</p>
     </div>
   );
 };
 
-// Helper function to render structured content
-const renderStructuredContent = (content: Record<string, any>) => {
-  console.log("Rendering structured content:", content);
+// Enhanced content rendering with tabs if document has multiple sections
+const renderEnhancedContent = (content: Record<string, any>) => {
+  console.log("Rendering enhanced content:", content);
   
+  // Get top-level keys except raw_text and error for potential tabs
+  const contentSections = Object.keys(content).filter(key => 
+    key !== 'error' && key !== 'raw_text'
+  );
+  
+  // If we have multiple distinct sections, show them in tabs
+  if (contentSections.length > 3) {
+    return (
+      <div className="p-4 border rounded-md">
+        <h3 className="text-lg font-medium mb-4">Document Content</h3>
+        <Tabs defaultValue={contentSections[0]} className="w-full">
+          <TabsList className="mb-4">
+            {contentSections.map(section => (
+              <TabsTrigger key={section} value={section} className="capitalize">
+                {section.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          
+          {contentSections.map(section => (
+            <TabsContent key={section} value={section}>
+              {renderContentSection(section, content[section])}
+            </TabsContent>
+          ))}
+        </Tabs>
+      </div>
+    );
+  }
+  
+  // Otherwise show all sections in a scrollable layout
   return (
     <div className="p-4 border rounded-md">
       <h3 className="text-lg font-medium mb-4">Document Content</h3>
       <div className="space-y-6">
-        {Object.entries(content).map(([key, value]) => {
-          // Skip raw_text and error fields
-          if (key === 'error' || key === 'raw_text') {
-            return null;
-          }
-          
-          // Handle nested objects
-          if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-            return (
-              <div key={key} className="border rounded-md p-4">
-                <h4 className="font-medium text-md mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</h4>
-                <div className="space-y-2">
-                  {Object.entries(value as Record<string, any>).map(([subKey, subValue]) => (
-                    <div key={`${key}-${subKey}`} className="flex justify-between border-b pb-1">
-                      <span className="text-muted-foreground capitalize text-sm">{subKey.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
-                      <span className="text-sm font-medium">{String(subValue)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          } 
-          // Handle arrays - show as tables if they contain objects
-          else if (Array.isArray(value)) {
-            return (
-              <div key={key} className="border rounded-md p-4">
-                <h4 className="font-medium text-md mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</h4>
-                {value.length > 0 && typeof value[0] === 'object' ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {Object.keys(value[0]).map((header) => (
-                          <TableHead key={header} className="capitalize">
-                            {header.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {value.map((item, index) => (
-                        <TableRow key={index}>
-                          {Object.values(item).map((val, idx) => (
-                            <TableCell key={idx}>{typeof val === 'object' ? JSON.stringify(val) : String(val)}</TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="pl-4 border-l-2 border-muted space-y-1">
-                    {value.map((item, index) => (
-                      <div key={index} className="text-sm">
-                        {typeof item === 'object' ? JSON.stringify(item) : String(item)}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          } 
-          // Handle simple key-value pairs
-          else {
-            return (
-              <div key={key} className="flex justify-between border-b pb-2">
-                <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
-                <span className="font-medium">{String(value)}</span>
-              </div>
-            );
-          }
-        })}
+        {contentSections.map(section => (
+          <Card key={section} className="overflow-hidden">
+            <CardContent className="p-4">
+              <h4 className="font-medium text-md mb-2 capitalize border-b pb-2">
+                {section.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+              </h4>
+              {renderContentSection(section, content[section])}
+            </CardContent>
+          </Card>
+        ))}
+        
+        {/* Show raw text at the bottom if available alongside other content */}
+        {content.raw_text && contentSections.length > 0 && (
+          <Card className="overflow-hidden">
+            <CardContent className="p-4">
+              <h4 className="font-medium text-md mb-2 capitalize border-b pb-2">Raw Text</h4>
+              <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-sm max-h-60 overflow-y-auto">
+                {content.raw_text}
+              </pre>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
+};
+
+// Helper function to render individual content sections
+const renderContentSection = (key: string, value: any) => {
+  // Handle different value types
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return (
+      <div className="space-y-2">
+        {Object.entries(value as Record<string, any>).map(([subKey, subValue]) => (
+          <div key={`${key}-${subKey}`} className="flex justify-between border-b pb-1">
+            <span className="text-muted-foreground capitalize text-sm">{subKey.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
+            <span className="text-sm font-medium">{formatValue(subValue)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  } 
+  // Handle arrays - show as tables if they contain objects
+  else if (Array.isArray(value)) {
+    return (
+      <div className="overflow-x-auto">
+        {value.length > 0 && typeof value[0] === 'object' ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {Object.keys(value[0]).map((header) => (
+                  <TableHead key={header} className="capitalize">
+                    {header.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {value.map((item, index) => (
+                <TableRow key={index}>
+                  {Object.values(item).map((val, idx) => (
+                    <TableCell key={idx}>{formatValue(val)}</TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="pl-4 border-l-2 border-muted space-y-1">
+            {value.map((item, index) => (
+              <div key={index} className="text-sm">
+                {formatValue(item)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  } 
+  // Handle simple values
+  else {
+    return <span className="text-sm">{formatValue(value)}</span>;
+  }
+};
+
+// Helper function to format values appropriately
+const formatValue = (value: any): string => {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number' && !isNaN(value)) {
+    // Format currency-like numbers
+    if (key && key.toLowerCase().includes('amount') || 
+        key && key.toLowerCase().includes('price') || 
+        key && key.toLowerCase().includes('cost')) {
+      return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    }
+    // Format other numbers
+    return value.toLocaleString();
+  }
+  return String(value);
 };
