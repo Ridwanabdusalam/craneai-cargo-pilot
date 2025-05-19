@@ -1,477 +1,189 @@
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { Document, DocumentStatus } from '@/types/documents';
-import { formatDocumentFromSupabase } from './documentFormatters';
+import { Document, DocumentStatus, formatDocumentFromSupabase } from '@/types/documents';
 
-// Get all documents with simplified query that doesn't rely on non-existent relationships
+// Get all documents
 export const getAllDocuments = async (): Promise<Document[]> => {
   try {
-    console.log('Fetching all documents');
-    
-    // First check if we're authenticated
-    const { data: authData } = await supabase.auth.getSession();
-    console.log('Current auth status:', authData?.session ? 'Authenticated' : 'Not authenticated');
-    
-    // Check if the table exists
-    const { data: tableCheckData, error: tableCheckError } = await supabase
-      .from('documents')
-      .select('id')
-      .limit(1);
-      
-    if (tableCheckError) {
-      console.error('Error checking document table:', tableCheckError);
-      console.log('The documents table may not exist or you may not have access to it');
-    } else {
-      console.log('Documents table exists and is accessible');
-    }
-    
-    // Get the document count
-    const { count, error: countError } = await supabase
-      .from('documents')
-      .select('*', { count: 'exact', head: true });
-    
-    if (countError) {
-      console.error('Error checking document count:', countError);
-    } else {
-      console.log(`Document count: ${count !== null ? count : 'unknown'}`);
-    }
-    
-    // Use a simpler query that doesn't rely on relationships that might not exist
-    console.log('Fetching documents with a simplified query');
-    const { data: documents, error } = await supabase
+    const { data, error } = await supabase
       .from('documents')
       .select('*')
       .order('last_updated', { ascending: false });
-      
+
     if (error) {
-      console.error('Error in getAllDocuments:', error);
-      return [];
+      throw error;
     }
-    
-    if (!documents) {
-      console.log('No documents returned (null)');
-      return [];
-    }
-    
-    if (documents.length === 0) {
-      console.log('No documents found in the database (empty array)');
-      return [];
-    }
-    
-    console.log(`Successfully fetched ${documents.length} documents:`, documents);
-    
-    // Fetch additional data separately instead of using relationships
-    const docsWithDetails = await Promise.all(
-      documents.map(async (doc) => {
-        // Fetch validation issues
-        const { data: validationIssues } = await supabase
-          .from('validation_issues')
-          .select('*')
-          .eq('document_id', doc.id);
-          
-        // Fetch document content
-        const { data: contentData } = await supabase
-          .from('document_content')
-          .select('content, raw_text')
-          .eq('document_id', doc.id)
-          .maybeSingle();
-          
-        // Combine all data
-        const enrichedDoc = {
-          ...doc,
-          validation_issues: validationIssues || [],
-          document_content: contentData || { content: {}, raw_text: null },
-          // We're not using verified_by since we don't have that relationship
-          verified_by: null
-        };
-        
-        return enrichedDoc;
-      })
-    );
-    
-    const formattedDocuments = docsWithDetails.map(doc => formatDocumentFromSupabase(doc));
-    console.log('Formatted documents:', formattedDocuments);
-    return formattedDocuments;
+
+    return data.map(formatDocumentFromSupabase);
   } catch (error) {
-    console.error('Error fetching documents:', error);
-    return []; // Return empty array to prevent UI issues
+    console.error('Error fetching all documents:', error);
+    throw error;
   }
 };
 
-// Get documents by status with the same fix applied
+// Get documents by status
 export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Document[]> => {
   try {
-    console.log(`Fetching documents with status: ${status}`);
-    
-    // First check if we're authenticated
-    const { data: authData } = await supabase.auth.getSession();
-    console.log('Current auth status:', authData?.session ? 'Authenticated' : 'Not authenticated');
-    
-    // Get the document count
-    const { count, error: countError } = await supabase
-      .from('documents')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', status);
-    
-    if (countError) {
-      console.error(`Error checking ${status} document count:`, countError);
-    } else {
-      console.log(`${status} document count: ${count !== null ? count : 'unknown'}`);
-    }
-    
-    // Use a simpler query that doesn't rely on relationships that might not exist
-    const { data: documents, error } = await supabase
+    const { data, error } = await supabase
       .from('documents')
       .select('*')
       .eq('status', status)
       .order('last_updated', { ascending: false });
-      
+
     if (error) {
-      console.error(`Error in getDocumentsByStatus(${status}):`, error);
-      return [];
+      throw error;
     }
-    
-    if (!documents) {
-      console.log(`No ${status} documents returned (null)`);
-      return [];
-    }
-    
-    if (documents.length === 0) {
-      console.log(`No ${status} documents found in the database (empty array)`);
-      return [];
-    }
-    
-    // Fetch additional data separately instead of using relationships
-    const docsWithDetails = await Promise.all(
-      documents.map(async (doc) => {
-        // Fetch validation issues
-        const { data: validationIssues } = await supabase
-          .from('validation_issues')
-          .select('*')
-          .eq('document_id', doc.id);
-          
-        // Fetch document content
-        const { data: contentData } = await supabase
-          .from('document_content')
-          .select('content, raw_text')
-          .eq('document_id', doc.id)
-          .maybeSingle();
-          
-        // Combine all data
-        const enrichedDoc = {
-          ...doc,
-          validation_issues: validationIssues || [],
-          document_content: contentData || { content: {}, raw_text: null },
-          verified_by: null
-        };
-        
-        return enrichedDoc;
-      })
-    );
-    
-    const formattedDocuments = docsWithDetails.map(doc => formatDocumentFromSupabase(doc));
-    return formattedDocuments;
+
+    return data.map(formatDocumentFromSupabase);
   } catch (error) {
-    console.error(`Error fetching ${status} documents:`, error);
-    return [];
+    console.error(`Error fetching documents with status ${status}:`, error);
+    throw error;
   }
 };
 
-// Get document by ID with improved content selection logic
-export const getDocumentById = async (id: string): Promise<Document | null> => {
+// Get document by ID with enhanced content selection logic
+export const getDocumentById = async (id: string): Promise<Document> => {
   try {
-    console.log(`Fetching document with ID: ${id}`);
-    
-    // Query for the main document
-    const { data: document, error } = await supabase
+    // First, get the document metadata
+    const { data: documentData, error: documentError } = await supabase
       .from('documents')
       .select('*')
       .eq('id', id)
-      .maybeSingle();
-      
-    if (error) {
-      console.error('Error in getDocumentById:', error);
-      toast.error('Failed to load document details');
-      return null;
+      .single();
+
+    if (documentError) {
+      throw documentError;
     }
-    
-    if (!document) {
-      console.log(`Document with ID ${id} not found`);
-      return null;
+
+    // Get validation checks for this document
+    const { data: validationChecks, error: checksError } = await supabase
+      .from('validation_checks')
+      .select('*')
+      .eq('document_id', id);
+
+    if (checksError) {
+      console.error('Error fetching validation checks:', checksError);
     }
-    
-    // Fetch validation issues
-    const { data: validationIssues } = await supabase
+
+    // Get validation issues for this document
+    const { data: validationIssues, error: issuesError } = await supabase
       .from('validation_issues')
       .select('*')
       .eq('document_id', id);
-    
-    // Fetch document content - get all matching records so we can find the one with actual content
-    const { data: contentRecords, error: contentError } = await supabase
+
+    if (issuesError) {
+      console.error('Error fetching validation issues:', issuesError);
+    }
+
+    // Get document content with improved selection logic 
+    const { data: contentData, error: contentError } = await supabase
       .from('document_content')
-      .select('*, created_at')
+      .select('*')
       .eq('document_id', id)
-      .order('created_at', { ascending: false });
-      
+      .order('created_at', { ascending: false }) // Get the most recent record first
+      .limit(1); // Only get the most recent record
+
     if (contentError) {
       console.error('Error fetching document content:', contentError);
     }
-    
-    console.log('Found content records:', contentRecords);
-    
-    // Choose the content record that has actual data
-    let contentData = null;
-    
-    if (contentRecords && contentRecords.length > 0) {
-      // First try to find a record with non-empty raw_text
-      contentData = contentRecords.find(record => 
-        record.raw_text && record.raw_text !== 'EMPTY' && record.raw_text.length > 2);
-      
-      // If no record with valid raw_text, try to find one with a non-empty content object
-      if (!contentData) {
-        contentData = contentRecords.find(record => 
-          record.content && typeof record.content === 'object' && 
-          Object.keys(record.content).length > 0 && 
-          JSON.stringify(record.content) !== '{}');
-      }
-      
-      // If still no valid record, use the most recent record
-      if (!contentData) {
-        contentData = contentRecords[0];
-      }
-    } else {
-      contentData = { content: {}, raw_text: null };
-    }
-    
-    console.log('Selected document content:', contentData);
-      
-    // Combine all data
-    const enrichedDoc = {
-      ...document,
-      validation_issues: validationIssues || [],
-      document_content: contentData,
-      verified_by: null
-    };
-    
-    return formatDocumentFromSupabase(enrichedDoc);
+
+    const content = contentData && contentData.length > 0 
+      ? contentData[0].content 
+      : {};
+
+    const rawText = contentData && contentData.length > 0 && contentData[0].raw_text
+      ? contentData[0].raw_text
+      : '';
+
+    // Format document with available data
+    return formatDocumentFromSupabase({
+      ...documentData,
+      content: {
+        ...content,
+        raw_text: rawText
+      },
+      validationChecks: validationChecks || [],
+      validationIssues: validationIssues || []
+    });
   } catch (error) {
-    console.error('Error fetching document details:', error);
-    toast.error('Failed to load document details');
-    return null;
+    console.error('Error fetching document by ID:', error);
+    throw error;
   }
 };
 
-// Search documents with the same fix applied
+// Search documents by title or type
 export const searchDocuments = async (query: string): Promise<Document[]> => {
-  if (!query) return getAllDocuments();
-  
   try {
-    console.log(`Searching documents with query: ${query}`);
-    
-    // Use a simpler query that doesn't rely on relationships that might not exist
-    const { data: documents, error } = await supabase
-      .from('documents')
-      .select('*')
-      .or(`title.ilike.%${query}%,type.ilike.%${query}%`)
-      .order('last_updated', { ascending: false });
-      
-    if (error) {
-      console.error('Error in searchDocuments:', error);
-      toast.error('Search failed');
-      return [];
-    }
-    
-    if (!documents || documents.length === 0) {
-      console.log('No matching documents found');
-      return [];
-    }
-    
-    // Fetch additional data separately instead of using relationships
-    const docsWithDetails = await Promise.all(
-      documents.map(async (doc) => {
-        // Fetch validation issues
-        const { data: validationIssues } = await supabase
-          .from('validation_issues')
-          .select('*')
-          .eq('document_id', doc.id);
-          
-        // Fetch document content
-        const { data: contentData } = await supabase
-          .from('document_content')
-          .select('content, raw_text')
-          .eq('document_id', doc.id)
-          .maybeSingle();
-          
-        // Combine all data
-        const enrichedDoc = {
-          ...doc,
-          validation_issues: validationIssues || [],
-          document_content: contentData || { content: {}, raw_text: null },
-          verified_by: null
-        };
-        
-        return enrichedDoc;
-      })
-    );
-    
-    const formattedDocuments = docsWithDetails.map(doc => formatDocumentFromSupabase(doc));
-    return formattedDocuments;
-  } catch (error) {
-    console.error('Error searching documents:', error);
-    toast.error('Search failed');
-    return [];
-  }
-};
-
-// Create sample documents for testing with more robust implementation
-export const createSampleDocuments = async (): Promise<void> => {
-  try {
-    console.log('Creating sample documents for testing');
-    
-    // First check if we're authenticated
-    const { data: authData } = await supabase.auth.getSession();
-    console.log('Current auth status:', authData?.session ? 'Authenticated' : 'Not authenticated');
-    
-    // Sample document types
-    const documentTypes = [
-      'Commercial Invoice',
-      'Bill of Lading', 
-      'Packing List', 
-      'Certificate of Origin',
-      'Dangerous Goods Declaration',
-      'Import/Export License',
-      'Insurance Certificate'
-    ];
-    
-    // Create multiple documents for each type for better testing
-    let sampleDocuments = [];
-    
-    for (const docType of documentTypes) {
-      // Create 3 documents of each type
-      for (let i = 0; i < 3; i++) {
-        // Distribute statuses
-        let status: DocumentStatus;
-        const rand = Math.random();
-        if (rand < 0.4) {
-          status = 'pending';
-        } else if (rand < 0.7) {
-          status = 'processing';
-        } else if (rand < 0.9) {
-          status = 'verified';
-        } else {
-          status = 'rejected';
-        }
-        
-        // Determine progress based on status
-        let progress = 0;
-        let flagged = false;
-        
-        switch (status) {
-          case 'pending':
-            progress = Math.floor(Math.random() * 20);
-            break;
-          case 'processing':
-            progress = 20 + Math.floor(Math.random() * 60);
-            break;
-          case 'verified':
-            progress = 100;
-            break;
-          case 'rejected':
-            progress = 100;
-            flagged = Math.random() > 0.5; // 50% chance of being flagged
-            break;
-        }
-        
-        // Create a unique title with timestamp to avoid duplicates
-        const uniqueId = Date.now() + sampleDocuments.length;
-        
-        // Create document record
-        sampleDocuments.push({
-          title: `Sample ${docType} #${Math.floor(Math.random() * 1000)}-${uniqueId}`,
-          type: docType,
-          status: status,
-          progress: progress,
-          flagged: flagged,
-          storage_path: `sample_${uniqueId}.pdf`,
-          last_updated: new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)).toISOString() // Random date in the last week
-        });
-      }
-    }
-    
-    console.log(`Created ${sampleDocuments.length} sample document objects, attempting to insert into database:`, sampleDocuments);
-    
-    // Insert the sample documents in batch
     const { data, error } = await supabase
       .from('documents')
-      .insert(sampleDocuments)
-      .select();
-      
+      .select('*')
+      .ilike('title', `%${query}%`)
+      .order('last_updated', { ascending: false });
+
     if (error) {
-      console.error('Error creating sample documents:', error);
       throw error;
     }
-    
-    if (!data || data.length === 0) {
-      console.warn('No document records were inserted or no data returned');
-      return;
-    }
-    
-    console.log(`Successfully inserted ${data.length} sample documents:`, data);
-    
-    // Create document content for each sample document
-    const contentPromises = data.map(doc => {
-      const sampleContent: Record<string, any> = {};
-      
-      // Add different fields based on document type
-      if (doc.type === 'Commercial Invoice') {
-        sampleContent.invoiceNumber = `INV-${Math.floor(Math.random() * 10000)}`;
-        sampleContent.seller = 'Sample Exporter Inc.';
-        sampleContent.buyer = 'Sample Importer Ltd.';
-        sampleContent.amount = (Math.random() * 10000).toFixed(2);
-        sampleContent.currency = 'USD';
-        sampleContent.date = new Date().toISOString().split('T')[0];
-      } else if (doc.type === 'Bill of Lading') {
-        sampleContent.blNumber = `BL-${Math.floor(Math.random() * 10000)}`;
-        sampleContent.carrier = 'Ocean Shipping Co.';
-        sampleContent.vessel = `MV Sample ${Math.floor(Math.random() * 100)}`;
-        sampleContent.portOfLoading = 'Shanghai';
-        sampleContent.portOfDischarge = 'Los Angeles';
-      } else if (doc.type === 'Packing List') {
-        sampleContent.reference = `PL-${Math.floor(Math.random() * 10000)}`;
-        sampleContent.packages = Math.floor(Math.random() * 100);
-        sampleContent.grossWeight = (Math.random() * 1000).toFixed(2);
-        sampleContent.measurement = (Math.random() * 100).toFixed(2);
-      } else {
-        sampleContent.referenceNumber = `REF-${Math.floor(Math.random() * 10000)}`;
-        sampleContent.issueDate = new Date().toISOString().split('T')[0];
-        sampleContent.expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      }
-      
-      return supabase
-        .from('document_content')
-        .insert({
-          document_id: doc.id,
-          content: sampleContent,
-          raw_text: `Sample text content for ${doc.type}`
-        });
-    });
-    
-    try {
-      const contentResults = await Promise.all(contentPromises);
-      console.log('Document content insertion results:', contentResults);
-      const errors = contentResults.filter(result => result.error).map(result => result.error);
-      if (errors.length > 0) {
-        console.error(`There were ${errors.length} errors creating document content:`, errors);
-      } else {
-        console.log('All document content created successfully');
-      }
-    } catch (contentError) {
-      console.error('Error creating document content:', contentError);
-    }
-    
-    return Promise.resolve();
+
+    return data.map(formatDocumentFromSupabase);
   } catch (error) {
-    console.error('Error in createSampleDocuments:', error);
-    return Promise.reject(error);
+    console.error('Error searching documents:', error);
+    throw error;
+  }
+};
+
+// Create sample documents (for development/testing)
+export const createSampleDocuments = async (): Promise<void> => {
+  try {
+    const sampleDocuments = [
+      {
+        title: 'Sample Invoice 001',
+        type: 'Invoice',
+        status: 'pending',
+        progress: 10,
+        flagged: false,
+        storage_path: '/path/to/invoice001.pdf',
+        last_updated: new Date().toISOString()
+      },
+      {
+        title: 'Sample Bill of Lading 002',
+        type: 'Bill of Lading',
+        status: 'processing',
+        progress: 50,
+        flagged: false,
+        storage_path: '/path/to/bol002.pdf',
+        last_updated: new Date().toISOString()
+      },
+      {
+        title: 'Sample Customs Declaration 003',
+        type: 'Customs Declaration',
+        status: 'verified',
+        progress: 100,
+        flagged: false,
+        storage_path: '/path/to/customs003.pdf',
+        last_updated: new Date().toISOString()
+      },
+      {
+        title: 'Sample Commercial Invoice 004',
+        type: 'Commercial Invoice',
+        status: 'rejected',
+        progress: 100,
+        flagged: true,
+        storage_path: '/path/to/invoice004.pdf',
+        last_updated: new Date().toISOString()
+      }
+    ];
+
+    // Insert the sample documents into the database
+    const { error } = await supabase
+      .from('documents')
+      .insert(sampleDocuments);
+
+    if (error) {
+      throw error;
+    }
+
+    console.log('Sample documents created successfully');
+  } catch (error) {
+    console.error('Error creating sample documents:', error);
+    throw error;
   }
 };

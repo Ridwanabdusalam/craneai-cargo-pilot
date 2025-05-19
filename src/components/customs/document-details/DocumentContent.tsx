@@ -13,26 +13,32 @@ interface DocumentContentProps {
 export const DocumentContent: React.FC<DocumentContentProps> = ({ content, status }) => {
   // Helper function to try parsing raw_text
   const tryParseContent = () => {
-    // First check if we have raw_text
-    if (content?.raw_text && typeof content.raw_text === 'string' && content.raw_text.trim() !== '' && content.raw_text !== 'EMPTY') {
-      try {
-        // If raw_text exists, attempt to parse it
-        const parsed = JSON.parse(content.raw_text);
-        console.log('Successfully parsed raw_text:', parsed);
-        return parsed;
-      } catch (e) {
-        console.error('Failed to parse raw_text as JSON:', e);
-        // If parsing fails, just return the raw text for display
-        return null;
+    try {
+      // First check if we have valid data in the content object itself
+      if (content && typeof content === 'object' && Object.keys(content).filter(key => key !== 'raw_text' && key !== 'error').length > 0) {
+        console.log('Using content object directly:', content);
+        return content;
       }
+      
+      // Then try parsing raw_text if available
+      if (content?.raw_text && typeof content.raw_text === 'string' && content.raw_text.trim() !== '' && content.raw_text !== 'EMPTY') {
+        try {
+          // If raw_text exists, attempt to parse it
+          const parsed = JSON.parse(content.raw_text);
+          console.log('Successfully parsed raw_text:', parsed);
+          return parsed;
+        } catch (e) {
+          console.error('Failed to parse raw_text as JSON:', e);
+          // If parsing fails, just return null to display the raw text directly
+          return null;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error in tryParseContent:", error);
+      return null;
     }
-    
-    // If no raw_text, check if content object has meaningful data
-    if (content && typeof content === 'object' && Object.keys(content).length > 0) {
-      return content;
-    }
-    
-    return null;
   };
   
   // Check if the document is still in the processing state
