@@ -11,6 +11,9 @@ interface DocumentContentProps {
 }
 
 export const DocumentContent: React.FC<DocumentContentProps> = ({ content, status }) => {
+  // Log the content received to help with debugging
+  console.log("DocumentContent received:", content);
+  
   // First check if we have an error in the content
   if (content && content.error) {
     return (
