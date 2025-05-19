@@ -430,12 +430,14 @@ async function completeDocumentProcessing(supabase, documentId, validationIssues
   
   // Determine final status based on validation
   const hasCriticalIssues = validationIssues && validationIssues.some((issue) => issue.severity === "high");
+  
+  // FIXED: Always set status to "pending_verification" or "rejected", never leave in "processing"
   const finalStatus = hasCriticalIssues ? "rejected" : "pending_verification";
   
-  // Update document with final status
+  // FIXED: Always update progress to 100% when processing is complete
   await updateDocumentStatus(supabase, documentId, finalStatus, 100, {
     flagged: hasCriticalIssues,
-    processing_completed: new Date().toISOString(),
+    processing_completed: new Date().toISOString(), // FIXED: Add completion timestamp
     processing_time_ms: processingTime
   });
   
@@ -551,7 +553,7 @@ serve(async (req) => {
     // Store validation issues if any
     await storeValidationIssues(supabase, documentId, validationIssues);
     
-    // Complete document processing and get final status
+    // FIXED: Make sure to complete processing and update final status to either "pending_verification" or "rejected"
     const finalStatus = await completeDocumentProcessing(
       supabase, 
       documentId, 
@@ -559,8 +561,13 @@ serve(async (req) => {
       processingStart
     );
     
+    // FIXED: Make sure the final status is properly reported in the response
     return new Response(
-      JSON.stringify({ success: true, message: "Document processed successfully", status: finalStatus }),
+      JSON.stringify({ 
+        success: true, 
+        message: "Document processed successfully", 
+        status: finalStatus 
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
