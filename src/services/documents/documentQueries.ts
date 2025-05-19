@@ -207,18 +207,36 @@ export const getDocumentById = async (id: string): Promise<Document | null> => {
       .select('*')
       .eq('document_id', id);
     
-    // Fetch document content
-    const { data: contentData } = await supabase
+    // Fetch document content - get all matching records to ensure we get the one with content
+    const { data: contentRecords } = await supabase
       .from('document_content')
       .select('content, raw_text')
-      .eq('document_id', id)
-      .maybeSingle();
+      .eq('document_id', id);
+      
+    // Choose the content record that has data
+    // First try to find a record with raw_text
+    let contentData = contentRecords?.find(record => record.raw_text && record.raw_text !== 'EMPTY');
+    
+    // If no record with raw_text, try to find one with a non-empty content object
+    if (!contentData) {
+      contentData = contentRecords?.find(record => 
+        record.content && Object.keys(record.content).length > 0);
+    }
+    
+    // If still no valid record, use the first one or create an empty object
+    if (!contentData && contentRecords && contentRecords.length > 0) {
+      contentData = contentRecords[0];
+    } else if (!contentData) {
+      contentData = { content: {}, raw_text: null };
+    }
+    
+    console.log('Selected document content:', contentData);
       
     // Combine all data
     const enrichedDoc = {
       ...document,
       validation_issues: validationIssues || [],
-      document_content: contentData || { content: {}, raw_text: null },
+      document_content: contentData,
       verified_by: null
     };
     
