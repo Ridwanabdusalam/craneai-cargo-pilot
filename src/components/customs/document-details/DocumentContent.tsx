@@ -141,8 +141,8 @@ const renderContentSection = (key: string, value: any) => {
   if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
     return (
       <div className="space-y-2">
-        {Object.entries(value as Record<string, any>).map(([subKey, subValue]) => (
-          <div key={`${key}-${subKey}`} className="flex justify-between border-b pb-1">
+        {Object.entries(value as Record<string, any>).map(([subKey, subValue], index) => (
+          <div key={`${key}-${subKey}-${index}`} className="flex justify-between border-b pb-1">
             <span className="text-muted-foreground capitalize text-sm">{subKey.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
             <span className="text-sm font-medium">{formatValue(subValue)}</span>
           </div>
@@ -158,8 +158,8 @@ const renderContentSection = (key: string, value: any) => {
           <Table>
             <TableHeader>
               <TableRow>
-                {Object.keys(value[0]).map((header) => (
-                  <TableHead key={header} className="capitalize">
+                {Object.keys(value[0]).map((header, idx) => (
+                  <TableHead key={`${header}-${idx}`} className="capitalize">
                     {header.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
                   </TableHead>
                 ))}
@@ -169,7 +169,7 @@ const renderContentSection = (key: string, value: any) => {
               {value.map((item, index) => (
                 <TableRow key={index}>
                   {Object.values(item).map((val, idx) => (
-                    <TableCell key={idx}>{formatValue(val)}</TableCell>
+                    <TableCell key={`${idx}-${val}`}>{formatValue(val)}</TableCell>
                   ))}
                 </TableRow>
               ))}
@@ -178,7 +178,7 @@ const renderContentSection = (key: string, value: any) => {
         ) : (
           <div className="pl-4 border-l-2 border-muted space-y-1">
             {value.map((item, index) => (
-              <div key={index} className="text-sm">
+              <div key={`${index}-${item}`} className="text-sm">
                 {formatValue(item)}
               </div>
             ))}
