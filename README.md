@@ -4,7 +4,7 @@
 
 **URL**: https://craneai.dev/projects/1df82b8d-51ff-4615-a877-d20622449258
 
-## How can I edit this code?
+## How to edit this code:
 
 There are several ways of editing your application.
 
