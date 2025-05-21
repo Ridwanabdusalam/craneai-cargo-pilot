@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: https://craneai.dev/projects/1df82b8d-51ff-4615-a877-d20622449258
+**URL**: https://craneai.ridwanabdsalam.com/
 
 ## How to edit this code:
 
