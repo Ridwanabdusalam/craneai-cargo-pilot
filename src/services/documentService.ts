@@ -4,6 +4,7 @@ import { getAllDocuments, getDocumentById, getDocumentsByStatus, searchDocuments
 import { uploadDocument, verifyDocument, rejectDocument, fixDocumentIssues } from './documents/documentMutations';
 import { downloadDocument } from './documents/documentStorage';
 import { formatDocumentFromSupabase } from './documents/documentFormatters';
+import { validateDocumentContent, createSampleValidationRules, getValidationRules } from './documents/documentValidation';
 
 export {
   getAllDocuments,
@@ -16,5 +17,8 @@ export {
   rejectDocument,
   fixDocumentIssues,
   downloadDocument,
-  formatDocumentFromSupabase
+  formatDocumentFromSupabase,
+  validateDocumentContent,
+  createSampleValidationRules,
+  getValidationRules
 };

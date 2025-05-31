@@ -1,4 +1,3 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -452,6 +451,148 @@ async function completeDocumentProcessing(supabase, documentId, validationIssues
 }
 
 /**
+ * Validate document using predefined rules from database
+ */
+async function validateDocumentWithRules(supabase, documentId, documentType, content) {
+  console.log("Validating document with predefined rules:", documentType);
+  
+  try {
+    // Get validation rules for this document type
+    const { data: rules, error: rulesError } = await supabase
+      .from("validation_rules")
+      .select("*")
+      .eq("document_type", documentType)
+      .eq("is_active", true);
+
+    if (rulesError) {
+      console.error("Error fetching validation rules:", rulesError);
+      return { validationChecks: [], validationIssues: [] };
+    }
+
+    const validationChecks = [];
+    const validationIssues = [];
+
+    // Apply each validation rule
+    for (const rule of rules || []) {
+      const checkResult = applyValidationRule(rule, content);
+      
+      validationChecks.push({
+        name: rule.rule_name,
+        description: rule.error_message,
+        status: checkResult.passed ? "passed" : "failed",
+        details: checkResult.details || ""
+      });
+
+      if (!checkResult.passed) {
+        validationIssues.push({
+          field: rule.condition_field,
+          issue: rule.error_message,
+          severity: rule.severity
+        });
+      }
+
+      // Store validation result in database
+      await supabase
+        .from("document_validations")
+        .insert({
+          document_id: documentId,
+          rule_id: rule.id,
+          status: checkResult.passed ? "passed" : "failed",
+          details: { result: checkResult.details }
+        });
+    }
+
+    return { validationChecks, validationIssues };
+  } catch (error) {
+    console.error("Error validating document with rules:", error);
+    return { validationChecks: [], validationIssues: [] };
+  }
+}
+
+/**
+ * Apply a single validation rule to content
+ */
+function applyValidationRule(rule, content) {
+  const fieldValue = getFieldValue(content, rule.condition_field);
+  
+  switch (rule.condition_type) {
+    case "required":
+      return {
+        passed: fieldValue !== null && fieldValue !== undefined && fieldValue !== "",
+        details: fieldValue ? `Field has value: ${fieldValue}` : "Field is missing or empty"
+      };
+      
+    case "equals":
+      return {
+        passed: fieldValue === rule.condition_value,
+        details: `Expected: ${rule.condition_value}, Found: ${fieldValue}`
+      };
+      
+    case "contains":
+      return {
+        passed: fieldValue && fieldValue.toString().includes(rule.condition_value || ""),
+        details: `Checking if "${fieldValue}" contains "${rule.condition_value}"`
+      };
+      
+    case "min_length":
+      const minLength = parseInt(rule.condition_value || "0");
+      const actualLength = fieldValue ? fieldValue.toString().length : 0;
+      return {
+        passed: actualLength >= minLength,
+        details: `Required length: ${minLength}, Actual length: ${actualLength}`
+      };
+      
+    case "max_length":
+      const maxLength = parseInt(rule.condition_value || "0");
+      const currentLength = fieldValue ? fieldValue.toString().length : 0;
+      return {
+        passed: currentLength <= maxLength,
+        details: `Max length: ${maxLength}, Actual length: ${currentLength}`
+      };
+      
+    case "numeric":
+      const isNumeric = !isNaN(Number(fieldValue));
+      return {
+        passed: isNumeric,
+        details: `Value "${fieldValue}" is ${isNumeric ? "numeric" : "not numeric"}`
+      };
+      
+    case "date_format":
+      const isValidDate = !isNaN(Date.parse(fieldValue));
+      return {
+        passed: isValidDate,
+        details: `Value "${fieldValue}" is ${isValidDate ? "a valid date" : "not a valid date"}`
+      };
+      
+    default:
+      return {
+        passed: true,
+        details: `Unknown validation type: ${rule.condition_type}`
+      };
+  }
+}
+
+/**
+ * Get field value from nested object using dot notation
+ */
+function getFieldValue(obj, fieldPath) {
+  if (!obj || !fieldPath) return null;
+  
+  const keys = fieldPath.split(".");
+  let value = obj;
+  
+  for (const key of keys) {
+    if (value && typeof value === "object") {
+      value = value[key];
+    } else {
+      return null;
+    }
+  }
+  
+  return value;
+}
+
+/**
  * Main handler for document processing
  */
 serve(async (req) => {
@@ -501,7 +642,7 @@ serve(async (req) => {
     const { data: signedUrl } = await supabase
       .storage
       .from("documents")
-      .createSignedUrl(document.storage_path, 3600); // 1 hour expiry for processing
+      .createSignedUrl(document.storage_path, 3600);
     
     if (!signedUrl?.signedUrl) {
       throw new Error("Failed to generate signed URL for document");
@@ -513,8 +654,7 @@ serve(async (req) => {
     // Extract document content
     const extractedContent = await extractDocumentContent(signedUrl.signedUrl, document.type);
     
-    // Store extracted content ONLY if we have valid content
-    // Check if the content is valid and not empty
+    // Store extracted content
     const hasValidContent = extractedContent && 
       (typeof extractedContent === 'object' && 
        Object.keys(extractedContent).length > 0) ||
@@ -522,13 +662,11 @@ serve(async (req) => {
        extractedContent.raw_text !== 'EMPTY');
     
     if (hasValidContent) {
-      // Delete any existing content for this document to prevent duplicates
       await supabase
         .from("document_content")
         .delete()
         .eq("document_id", documentId);
         
-      // Insert the new content
       await supabase
         .from("document_content")
         .insert({
@@ -536,15 +674,18 @@ serve(async (req) => {
           content: extractedContent,
           raw_text: typeof extractedContent === "string" ? extractedContent : JSON.stringify(extractedContent)
         });
-    } else {
-      console.error("Skipping document_content creation: No valid content extracted");
     }
     
     // Update progress
     await updateDocumentStatus(supabase, documentId, "processing", 70);
     
-    // Validate document
-    const validationResult = await validateDocument(extractedContent, document.type);
+    // Use the new validation system with predefined rules
+    const validationResult = await validateDocumentWithRules(
+      supabase, 
+      documentId, 
+      document.type, 
+      extractedContent
+    );
     const { validationChecks, validationIssues } = validationResult;
     
     // Store validation checks
@@ -553,7 +694,7 @@ serve(async (req) => {
     // Store validation issues if any
     await storeValidationIssues(supabase, documentId, validationIssues);
     
-    // FIXED: Make sure to complete processing and update final status to either "pending_verification" or "rejected"
+    // Complete processing
     const finalStatus = await completeDocumentProcessing(
       supabase, 
       documentId, 
@@ -561,12 +702,13 @@ serve(async (req) => {
       processingStart
     );
     
-    // FIXED: Make sure the final status is properly reported in the response
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: "Document processed successfully", 
-        status: finalStatus 
+        status: finalStatus,
+        validationChecks: validationChecks.length,
+        validationIssues: validationIssues.length
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
