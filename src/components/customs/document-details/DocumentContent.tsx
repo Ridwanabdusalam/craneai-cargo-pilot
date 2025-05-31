@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -134,7 +135,7 @@ const renderEnhancedContent = (content: Record<string, any>) => {
         {contentSections.map(section => (
           <Card key={section} className="overflow-hidden">
             <CardContent className="p-4">
-              <h4 className="font-medium text-md mb-2 capitalize border-b pb-2">
+              <h4 className="font-medium text-md mb-2 capitalize border-b pb-2 break-words">
                 {section.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
               </h4>
               {renderContentSection(section, content[section])}
@@ -165,9 +166,13 @@ const renderContentSection = (key: string, value: any) => {
     return (
       <div className="space-y-2">
         {Object.entries(value as Record<string, any>).map(([subKey, subValue], index) => (
-          <div key={`${key}-${subKey}-${index}`} className="flex justify-between border-b pb-1">
-            <span className="text-muted-foreground capitalize text-sm">{subKey.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}</span>
-            <span className="text-sm font-medium">{formatValue(subValue)}</span>
+          <div key={`${key}-${subKey}-${index}`} className="flex justify-between border-b pb-1 gap-4">
+            <span className="text-muted-foreground capitalize text-sm flex-shrink-0 min-w-0 break-words">
+              {subKey.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+            </span>
+            <span className="text-sm font-medium text-right min-w-0 break-words">
+              {formatValue(subValue)}
+            </span>
           </div>
         ))}
       </div>
@@ -182,7 +187,7 @@ const renderContentSection = (key: string, value: any) => {
             <TableHeader>
               <TableRow>
                 {Object.keys(value[0]).map((header, idx) => (
-                  <TableHead key={`${header}-${idx}`} className="capitalize">
+                  <TableHead key={`${header}-${idx}`} className="capitalize min-w-0 break-words">
                     {header.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
                   </TableHead>
                 ))}
@@ -192,7 +197,9 @@ const renderContentSection = (key: string, value: any) => {
               {value.map((item, index) => (
                 <TableRow key={index}>
                   {Object.values(item).map((val, idx) => (
-                    <TableCell key={`${idx}-${val}`}>{formatValue(val)}</TableCell>
+                    <TableCell key={`${idx}-${val}`} className="min-w-0 break-words">
+                      {formatValue(val)}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))}
@@ -201,7 +208,7 @@ const renderContentSection = (key: string, value: any) => {
         ) : (
           <div className="pl-4 border-l-2 border-muted space-y-1">
             {value.map((item, index) => (
-              <div key={`${index}-${item}`} className="text-sm">
+              <div key={`${index}-${item}`} className="text-sm break-words">
                 {formatValue(item)}
               </div>
             ))}
@@ -212,7 +219,7 @@ const renderContentSection = (key: string, value: any) => {
   } 
   // Handle simple values
   else {
-    return <span className="text-sm">{formatValue(value)}</span>;
+    return <span className="text-sm break-words">{formatValue(value)}</span>;
   }
 };
 
@@ -223,11 +230,9 @@ const formatValue = (value: any): string => {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'number' && !isNaN(value)) {
     // Format currency-like numbers
-    if (value && (
-        typeof value === 'number' && 
+    if (value && typeof value === 'number' && 
         value.toString().includes('.') && 
-        value.toString().split('.')[1].length <= 2
-      )) {
+        value.toString().split('.')[1].length <= 2) {
       return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     }
     // Format other numbers

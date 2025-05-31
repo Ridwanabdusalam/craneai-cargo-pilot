@@ -106,6 +106,51 @@ export type Database = {
           },
         ]
       }
+      document_validations: {
+        Row: {
+          created_at: string | null
+          details: Json | null
+          document_id: string
+          id: string
+          rule_id: string
+          status: Database["public"]["Enums"]["validation_status"]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          details?: Json | null
+          document_id: string
+          id?: string
+          rule_id: string
+          status: Database["public"]["Enums"]["validation_status"]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          details?: Json | null
+          document_id?: string
+          id?: string
+          rule_id?: string
+          status?: Database["public"]["Enums"]["validation_status"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_validations_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_validations_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "validation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           created_at: string
@@ -213,6 +258,44 @@ export type Database = {
         }
         Relationships: []
       }
+      validation_approvals: {
+        Row: {
+          comments: string | null
+          created_at: string | null
+          document_id: string
+          id: string
+          status: Database["public"]["Enums"]["approval_status"]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string | null
+          document_id: string
+          id?: string
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string | null
+          document_id?: string
+          id?: string
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "validation_approvals_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       validation_issues: {
         Row: {
           created_at: string
@@ -247,6 +330,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      validation_rules: {
+        Row: {
+          condition_field: string
+          condition_type: string
+          condition_value: string | null
+          created_at: string | null
+          description: string
+          document_type: string
+          error_message: string
+          id: string
+          is_active: boolean | null
+          rule_code: string
+          rule_name: string
+          severity: Database["public"]["Enums"]["validation_severity"]
+          updated_at: string | null
+        }
+        Insert: {
+          condition_field: string
+          condition_type: string
+          condition_value?: string | null
+          created_at?: string | null
+          description: string
+          document_type: string
+          error_message: string
+          id?: string
+          is_active?: boolean | null
+          rule_code: string
+          rule_name: string
+          severity: Database["public"]["Enums"]["validation_severity"]
+          updated_at?: string | null
+        }
+        Update: {
+          condition_field?: string
+          condition_type?: string
+          condition_value?: string | null
+          created_at?: string | null
+          description?: string
+          document_type?: string
+          error_message?: string
+          id?: string
+          is_active?: boolean | null
+          rule_code?: string
+          rule_name?: string
+          severity?: Database["public"]["Enums"]["validation_severity"]
+          updated_at?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -347,7 +478,9 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      approval_status: "pending" | "approved" | "rejected"
+      validation_severity: "error" | "warning" | "info"
+      validation_status: "pass" | "fail" | "warning" | "pending"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -462,6 +595,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      approval_status: ["pending", "approved", "rejected"],
+      validation_severity: ["error", "warning", "info"],
+      validation_status: ["pass", "fail", "warning", "pending"],
+    },
   },
 } as const
