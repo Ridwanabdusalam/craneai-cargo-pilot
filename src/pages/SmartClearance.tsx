@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
@@ -49,8 +50,9 @@ const SmartClearance = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingDocument, setIsLoadingDocument] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [fetchTrigger, setFetchTrigger] = useState(0); // Used to trigger document fetching
+  const [fetchTrigger, setFetchTrigger] = useState(0);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [creatingDocs, setCreatingDocs] = useState(false);
   
@@ -167,11 +169,24 @@ const SmartClearance = () => {
     }
   };
   
-  // Handle view document details
-  const handleViewDocument = (documentId: string) => {
-    const document = documents.find(doc => doc.id === documentId);
-    if (document) {
-      setSelectedDocument(document);
+  // Handle view document details - FIXED: Fetch complete document with content
+  const handleViewDocument = async (documentId: string) => {
+    console.log('Fetching complete document details for:', documentId);
+    setIsLoadingDocument(true);
+    
+    try {
+      const fullDocument = await getDocumentById(documentId);
+      if (fullDocument) {
+        console.log('Complete document fetched with content:', fullDocument);
+        setSelectedDocument(fullDocument);
+      } else {
+        toast.error('Document not found');
+      }
+    } catch (error) {
+      console.error('Error fetching document details:', error);
+      toast.error('Failed to load document details');
+    } finally {
+      setIsLoadingDocument(false);
     }
   };
   
@@ -242,6 +257,18 @@ const SmartClearance = () => {
       navigate('/clearance');
     }
   }, [navigate]);
+
+  // If a document is being loaded, show loading state
+  if (isLoadingDocument) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-muted-foreground">Loading document details...</p>
+        </div>
+      </div>
+    );
+  }
 
   // If a document is selected, show its details
   if (selectedDocument) {
