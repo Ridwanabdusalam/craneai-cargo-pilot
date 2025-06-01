@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { AlertTriangle, Truck, Ship, Plane, Map, Filter, SortAsc, Search } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ShipmentAlertCard, { AlertSeverity, AlertType, TransportMode } from '@/components/logistics/ShipmentAlertCard';
+import ShipmentDetails from '@/components/logistics/ShipmentDetails';
+import ActionDialog from '@/components/logistics/ActionDialog';
+import RiskMapDialog from '@/components/logistics/RiskMapDialog';
 import {
   AreaChart,
   Area,
@@ -89,6 +91,85 @@ const shipmentAlerts = [
 ];
 
 const LogisticsControl = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('severity');
+  const [selectedTab, setSelectedTab] = useState('all');
+  
+  // Dialog states
+  const [detailsDialog, setDetailsDialog] = useState<{ isOpen: boolean; shipment: any }>({
+    isOpen: false,
+    shipment: null
+  });
+  const [actionDialog, setActionDialog] = useState<{ isOpen: boolean; shipment: any }>({
+    isOpen: false,
+    shipment: null
+  });
+  const [riskMapDialog, setRiskMapDialog] = useState(false);
+
+  // Filter and search logic
+  const filteredAlerts = useMemo(() => {
+    let alerts = [...shipmentAlerts];
+
+    // Apply search filter
+    if (searchQuery) {
+      alerts = alerts.filter(alert => 
+        alert.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        alert.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        alert.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        alert.origin.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        alert.destination.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply alert type filter
+    if (selectedFilter !== 'all') {
+      alerts = alerts.filter(alert => alert.type === selectedFilter);
+    }
+
+    // Apply transport mode filter (from tabs)
+    if (selectedTab !== 'all') {
+      alerts = alerts.filter(alert => alert.mode === selectedTab);
+    }
+
+    // Apply sorting
+    alerts.sort((a, b) => {
+      switch (sortBy) {
+        case 'severity':
+          const severityOrder = { high: 3, medium: 2, low: 1 };
+          return severityOrder[b.severity] - severityOrder[a.severity];
+        case 'eta':
+          return new Date(a.eta || '').getTime() - new Date(b.eta || '').getTime();
+        case 'recent':
+          return a.id.localeCompare(b.id); // Simple ordering by ID as proxy for recent
+        default:
+          return 0;
+      }
+    });
+
+    return alerts;
+  }, [searchQuery, selectedFilter, sortBy, selectedTab]);
+
+  const handleViewDetails = (shipment: any) => {
+    setDetailsDialog({ isOpen: true, shipment });
+  };
+
+  const handleTakeAction = (shipment: any) => {
+    setActionDialog({ isOpen: true, shipment });
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  const handleFilterChange = (filter: string) => {
+    setSelectedFilter(filter);
+  };
+
+  const handleSortChange = (sort: string) => {
+    setSortBy(sort);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -154,7 +235,10 @@ const LogisticsControl = () => {
               <span className="text-lg font-bold">8</span>
             </div>
             
-            <Button className="w-full bg-crane-blue hover:bg-opacity-90 mt-2">
+            <Button 
+              className="w-full bg-crane-blue hover:bg-opacity-90 mt-2"
+              onClick={() => setRiskMapDialog(true)}
+            >
               <Map size={16} className="mr-2" />
               View Risk Map
             </Button>
@@ -178,7 +262,12 @@ const LogisticsControl = () => {
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search alerts..." className="pl-10" />
+              <Input 
+                placeholder="Search alerts..." 
+                className="pl-10" 
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+              />
             </div>
             
             <div className="flex gap-2">
@@ -191,11 +280,11 @@ const LogisticsControl = () => {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Filter By</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>All Alerts</DropdownMenuItem>
-                  <DropdownMenuItem>Weather Related</DropdownMenuItem>
-                  <DropdownMenuItem>Customs Issues</DropdownMenuItem>
-                  <DropdownMenuItem>Documentation</DropdownMenuItem>
-                  <DropdownMenuItem>Delays</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleFilterChange('all')}>All Alerts</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleFilterChange('weather')}>Weather Related</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleFilterChange('customs')}>Customs Issues</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleFilterChange('documentation')}>Documentation</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleFilterChange('delay')}>Delays</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               
@@ -208,16 +297,15 @@ const LogisticsControl = () => {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Sort By</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>Severity (High to Low)</DropdownMenuItem>
-                  <DropdownMenuItem>Severity (Low to High)</DropdownMenuItem>
-                  <DropdownMenuItem>ETA (Soonest First)</DropdownMenuItem>
-                  <DropdownMenuItem>Recently Updated</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleSortChange('severity')}>Severity (High to Low)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleSortChange('eta')}>ETA (Soonest First)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleSortChange('recent')}>Recently Updated</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
           
-          <Tabs defaultValue="all" className="w-full">
+          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="all">All Alerts</TabsTrigger>
               <TabsTrigger value="ocean" className="flex items-center">
@@ -233,45 +321,59 @@ const LogisticsControl = () => {
                 Road
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="all" className="mt-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {shipmentAlerts.map(alert => (
-                  <ShipmentAlertCard
-                    key={alert.id}
-                    shipmentId={alert.id}
-                    severity={alert.severity}
-                    alertType={alert.type}
-                    title={alert.title}
-                    description={alert.description}
-                    origin={alert.origin}
-                    destination={alert.destination}
-                    transportMode={alert.mode}
-                    eta={alert.eta}
-                    etaChange={alert.etaChange}
-                  />
-                ))}
-              </div>
-            </TabsContent>
-            <TabsContent value="ocean">
-              <div className="flex items-center justify-center h-52">
-                <p className="text-muted-foreground">Ocean shipment alerts will appear here</p>
-              </div>
-            </TabsContent>
-            <TabsContent value="air">
-              <div className="flex items-center justify-center h-52">
-                <p className="text-muted-foreground">Air shipment alerts will appear here</p>
-              </div>
-            </TabsContent>
-            <TabsContent value="road">
-              <div className="flex items-center justify-center h-52">
-                <p className="text-muted-foreground">Road shipment alerts will appear here</p>
-              </div>
+            <TabsContent value={selectedTab} className="mt-4">
+              {filteredAlerts.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {filteredAlerts.map(alert => (
+                    <div key={alert.id}>
+                      <ShipmentAlertCard
+                        shipmentId={alert.id}
+                        severity={alert.severity}
+                        alertType={alert.type}
+                        title={alert.title}
+                        description={alert.description}
+                        origin={alert.origin}
+                        destination={alert.destination}
+                        transportMode={alert.mode}
+                        eta={alert.eta}
+                        etaChange={alert.etaChange}
+                      />
+                      <div className="flex gap-2 mt-2">
+                        <Button 
+                          size="sm" 
+                          className="flex-1 bg-crane-blue hover:bg-opacity-90"
+                          onClick={() => handleViewDetails(alert)}
+                        >
+                          View Details
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => handleTakeAction(alert)}
+                        >
+                          Take Action
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-52">
+                  <div className="text-center">
+                    <AlertTriangle size={48} className="mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">
+                      {searchQuery ? 'No alerts match your search criteria' : 'No alerts for this transport mode'}
+                    </p>
+                  </div>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
         <CardFooter className="border-t flex justify-between pt-4">
           <div className="text-sm text-muted-foreground">
-            Showing 4 of 15 alerts
+            Showing {filteredAlerts.length} of {shipmentAlerts.length} alerts
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled>Previous</Button>
@@ -279,6 +381,24 @@ const LogisticsControl = () => {
           </div>
         </CardFooter>
       </Card>
+
+      {/* Dialogs */}
+      <ShipmentDetails
+        isOpen={detailsDialog.isOpen}
+        onClose={() => setDetailsDialog({ isOpen: false, shipment: null })}
+        shipment={detailsDialog.shipment}
+      />
+      
+      <ActionDialog
+        isOpen={actionDialog.isOpen}
+        onClose={() => setActionDialog({ isOpen: false, shipment: null })}
+        shipment={actionDialog.shipment}
+      />
+      
+      <RiskMapDialog
+        isOpen={riskMapDialog}
+        onClose={() => setRiskMapDialog(false)}
+      />
     </div>
   );
 };

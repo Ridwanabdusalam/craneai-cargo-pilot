@@ -13,7 +13,6 @@ import {
   CloudLightning
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export type AlertSeverity = 'high' | 'medium' | 'low';
@@ -113,7 +112,7 @@ const ShipmentAlertCard: React.FC<ShipmentAlertCardProps> = ({
       <CardContent>
         <p className="text-sm mb-4">{description}</p>
         
-        <div className="bg-muted/50 rounded-md p-3 flex flex-col sm:flex-row sm:items-center justify-between mb-4">
+        <div className="bg-muted/50 rounded-md p-3 flex flex-col sm:flex-row sm:items-center justify-between">
           <div className="flex items-center mb-2 sm:mb-0">
             <span className="text-xs font-medium mr-1">Route:</span>
             <span className="text-xs">{origin}</span>
@@ -124,11 +123,6 @@ const ShipmentAlertCard: React.FC<ShipmentAlertCardProps> = ({
             {getTransportIcon()}
             <span className="ml-1 capitalize">{transportMode}</span>
           </Badge>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button className="flex-1 bg-crane-blue hover:bg-opacity-90">View Details</Button>
-          <Button variant="outline" className="flex-1">Take Action</Button>
         </div>
       </CardContent>
     </Card>
