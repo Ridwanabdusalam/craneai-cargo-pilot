@@ -19,32 +19,49 @@ export function formatDocumentFromSupabase(supabaseDoc: any): Document {
     severity: issue.severity as 'low' | 'medium' | 'high'
   }));
 
-  // Get document content if available - IMPROVED CONTENT EXTRACTION
+  // FIXED: Improved content extraction to handle the exact database structure
   let content = {};
   
+  console.log("Document content array:", supabaseDoc.document_content);
+  
   if (supabaseDoc.document_content && Array.isArray(supabaseDoc.document_content) && supabaseDoc.document_content.length > 0) {
-    const contentRecord = supabaseDoc.document_content[0] as any;
+    const contentRecord = supabaseDoc.document_content[0];
     console.log("Raw content record:", contentRecord);
+    console.log("Content record keys:", Object.keys(contentRecord || {}));
     
-    // Try to get structured content first
+    // First priority: get the structured content from the 'content' field
     if (contentRecord.content && typeof contentRecord.content === 'object') {
-      content = contentRecord.content;
+      content = { ...contentRecord.content };
+      console.log("Extracted structured content:", content);
     }
     
-    // If we have raw_text but no structured content, include it
-    if (contentRecord.raw_text && (!content || Object.keys(content).length === 0)) {
-      content = { raw_text: contentRecord.raw_text };
+    // Second priority: if no structured content but we have raw_text, use that
+    if ((!content || Object.keys(content).length === 0) && contentRecord.raw_text) {
+      try {
+        // Try to parse raw_text as JSON first
+        const parsedRawText = JSON.parse(contentRecord.raw_text);
+        content = parsedRawText;
+        console.log("Parsed raw_text as JSON:", content);
+      } catch (e) {
+        // If parsing fails, store as raw text
+        content = { raw_text: contentRecord.raw_text };
+        console.log("Stored raw_text as plain text");
+      }
     }
     
-    // If structured content exists but no raw_text field, add it
-    if (contentRecord.raw_text && content && typeof content === 'object' && !(content as any).raw_text) {
-      (content as any).raw_text = contentRecord.raw_text;
+    // Always include raw_text if available and not already present
+    if (contentRecord.raw_text && content && typeof content === 'object') {
+      if (!(content as any).raw_text) {
+        (content as any).raw_text = contentRecord.raw_text;
+        console.log("Added raw_text to structured content");
+      }
     }
   } else {
     console.log("No document_content found or empty array");
   }
   
-  console.log("Processed content:", content);
+  console.log("Final processed content:", content);
+  console.log("Content has keys:", Object.keys(content || {}));
 
   // Calculate processing time if available
   let processingTime = null;
@@ -74,6 +91,7 @@ export function formatDocumentFromSupabase(supabaseDoc: any): Document {
   };
   
   console.log("Final formatted document:", formattedDocument);
+  console.log("Final content keys:", Object.keys(formattedDocument.content || {}));
   return formattedDocument;
 }
 

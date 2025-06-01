@@ -16,7 +16,7 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
   // Comprehensive logging to debug the content structure
   console.log("DocumentContent component received:", content);
   console.log("Content type:", typeof content);
-  console.log("Content keys:", Object.keys(content || {}));
+  console.log("Content keys:", content ? Object.keys(content) : []);
   console.log("Document status:", status);
   
   // Handle error content
@@ -31,14 +31,15 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
   
-  // IMPROVED: Check if we have actual content to display
+  // FIXED: Improved content detection logic
   const hasDisplayableContent = content && 
     typeof content === 'object' && 
+    Object.keys(content).length > 0 &&
     (
-      // Check for structured content (excluding error and raw_text keys)
-      Object.keys(content).filter(key => key !== 'error' && key !== 'raw_text').length > 0 ||
-      // OR check for raw_text content
-      (content.raw_text && content.raw_text.trim() !== '' && content.raw_text !== 'EMPTY')
+      // Check for structured content (excluding error key)
+      Object.keys(content).filter(key => key !== 'error').length > 0 ||
+      // OR check for raw_text content that's not empty
+      (content.raw_text && content.raw_text.toString().trim() !== '' && content.raw_text !== 'EMPTY')
     );
   
   console.log('DocumentContent - Enhanced content check:', {
@@ -46,10 +47,10 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     keys: content ? Object.keys(content) : [],
     hasDisplayableContent,
     hasRawText: !!content?.raw_text,
-    rawTextLength: content?.raw_text ? content.raw_text.length : 0,
+    rawTextLength: content?.raw_text ? content.raw_text.toString().length : 0,
     contentType: typeof content,
     status,
-    structuredKeysCount: content ? Object.keys(content).filter(key => key !== 'error' && key !== 'raw_text').length : 0
+    nonErrorKeysCount: content ? Object.keys(content).filter(key => key !== 'error').length : 0
   });
 
   // PRIORITY 1: If we have displayable content, show it regardless of processing status
@@ -57,7 +58,7 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     console.log("Displaying content - content available");
     
     // Handle case where we only have raw text
-    if (content && content.raw_text && Object.keys(content).filter(key => key !== 'raw_text').length === 0) {
+    if (content && content.raw_text && Object.keys(content).filter(key => key !== 'raw_text' && key !== 'error').length === 0) {
       return (
         <div className="p-4 border rounded-md">
           <h3 className="text-lg font-medium mb-4">Document Text</h3>
