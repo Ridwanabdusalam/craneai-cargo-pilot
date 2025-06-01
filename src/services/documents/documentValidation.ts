@@ -13,6 +13,7 @@ export interface ValidationRule {
   error_message: string;
   severity: 'low' | 'medium' | 'high';
   is_active: boolean;
+  description: string;
 }
 
 /**
@@ -30,7 +31,43 @@ export async function getValidationRules(documentType: string): Promise<Validati
     return [];
   }
 
-  return data || [];
+  // Map database types to our interface types
+  return (data || []).map(rule => ({
+    ...rule,
+    severity: mapSeverityFromDb(rule.severity) as 'low' | 'medium' | 'high'
+  }));
+}
+
+/**
+ * Map database severity to our interface severity
+ */
+function mapSeverityFromDb(dbSeverity: string): 'low' | 'medium' | 'high' {
+  switch (dbSeverity) {
+    case 'info':
+      return 'low';
+    case 'warning':
+      return 'medium';
+    case 'error':
+      return 'high';
+    default:
+      return 'medium';
+  }
+}
+
+/**
+ * Map our interface severity to database severity
+ */
+function mapSeverityToDb(severity: 'low' | 'medium' | 'high'): 'info' | 'warning' | 'error' {
+  switch (severity) {
+    case 'low':
+      return 'info';
+    case 'medium':
+      return 'warning';
+    case 'high':
+      return 'error';
+    default:
+      return 'warning';
+  }
 }
 
 /**
@@ -63,13 +100,13 @@ export async function validateDocumentContent(
       });
     }
 
-    // Store validation result in database
+    // Store validation result in database with correct status mapping
     await supabase
       .from('document_validations')
       .insert({
         document_id: documentId,
         rule_id: rule.id,
-        status: checkResult.passed ? 'passed' : 'failed',
+        status: checkResult.passed ? 'pass' : 'fail',
         details: { result: checkResult.details }
       });
   }
@@ -172,8 +209,9 @@ export async function createSampleValidationRules() {
       condition_field: 'invoice_number',
       condition_type: 'required',
       error_message: 'Invoice number is required for all invoices',
-      severity: 'high' as const,
-      is_active: true
+      severity: mapSeverityToDb('high'),
+      is_active: true,
+      description: 'Validates that an invoice number is present in the document'
     },
     {
       rule_name: 'Company Name Required',
@@ -182,8 +220,9 @@ export async function createSampleValidationRules() {
       condition_field: 'company_name',
       condition_type: 'required',
       error_message: 'Company name must be present',
-      severity: 'medium' as const,
-      is_active: true
+      severity: mapSeverityToDb('medium'),
+      is_active: true,
+      description: 'Validates that a company name is present in the document'
     },
     {
       rule_name: 'Total Amount Required',
@@ -192,8 +231,9 @@ export async function createSampleValidationRules() {
       condition_field: 'total_amount',
       condition_type: 'required',
       error_message: 'Total amount must be specified',
-      severity: 'high' as const,
-      is_active: true
+      severity: mapSeverityToDb('high'),
+      is_active: true,
+      description: 'Validates that a total amount is present in the document'
     },
     {
       rule_name: 'Date Format Check',
@@ -202,8 +242,9 @@ export async function createSampleValidationRules() {
       condition_field: 'date',
       condition_type: 'date_format',
       error_message: 'Date must be in valid format',
-      severity: 'medium' as const,
-      is_active: true
+      severity: mapSeverityToDb('medium'),
+      is_active: true,
+      description: 'Validates that the date field contains a valid date format'
     }
   ];
 
@@ -213,6 +254,7 @@ export async function createSampleValidationRules() {
 
   if (error) {
     console.error('Error creating sample validation rules:', error);
+    throw error;
   } else {
     console.log('Sample validation rules created successfully');
   }

@@ -476,6 +476,9 @@ async function validateDocumentWithRules(supabase, documentId, documentType, con
     for (const rule of rules || []) {
       const checkResult = applyValidationRule(rule, content);
       
+      // Map severity from database format to our format
+      const mappedSeverity = mapSeverityFromDb(rule.severity);
+      
       validationChecks.push({
         name: rule.rule_name,
         description: rule.error_message,
@@ -487,17 +490,17 @@ async function validateDocumentWithRules(supabase, documentId, documentType, con
         validationIssues.push({
           field: rule.condition_field,
           issue: rule.error_message,
-          severity: rule.severity
+          severity: mappedSeverity
         });
       }
 
-      // Store validation result in database
+      // Store validation result in database with correct status values
       await supabase
         .from("document_validations")
         .insert({
           document_id: documentId,
           rule_id: rule.id,
-          status: checkResult.passed ? "passed" : "failed",
+          status: checkResult.passed ? "pass" : "fail",
           details: { result: checkResult.details }
         });
     }
@@ -506,6 +509,22 @@ async function validateDocumentWithRules(supabase, documentId, documentType, con
   } catch (error) {
     console.error("Error validating document with rules:", error);
     return { validationChecks: [], validationIssues: [] };
+  }
+}
+
+/**
+ * Map database severity to our interface severity
+ */
+function mapSeverityFromDb(dbSeverity) {
+  switch (dbSeverity) {
+    case "info":
+      return "low";
+    case "warning":
+      return "medium";
+    case "error":
+      return "high";
+    default:
+      return "medium";
   }
 }
 

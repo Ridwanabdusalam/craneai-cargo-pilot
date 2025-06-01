@@ -19,6 +19,7 @@ interface ValidationRule {
   error_message: string;
   severity: 'low' | 'medium' | 'high';
   is_active: boolean;
+  description: string;
 }
 
 export const ValidationRulesManager: React.FC = () => {
@@ -79,7 +80,7 @@ export const ValidationRulesManager: React.FC = () => {
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle>Validation Rules</CardTitle>
+          <CardTitle>Validation Rules Manager</CardTitle>
           <div className="flex space-x-2">
             <Button onClick={handleCreateSampleRules} variant="outline" size="sm">
               <Plus className="mr-2 h-4 w-4" />
