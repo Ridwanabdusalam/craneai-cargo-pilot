@@ -23,7 +23,7 @@ export function formatDocumentFromSupabase(supabaseDoc: any): Document {
   let content = {};
   
   if (supabaseDoc.document_content && Array.isArray(supabaseDoc.document_content) && supabaseDoc.document_content.length > 0) {
-    const contentRecord = supabaseDoc.document_content[0];
+    const contentRecord = supabaseDoc.document_content[0] as any;
     console.log("Raw content record:", contentRecord);
     
     // Try to get structured content first
@@ -37,8 +37,8 @@ export function formatDocumentFromSupabase(supabaseDoc: any): Document {
     }
     
     // If structured content exists but no raw_text field, add it
-    if (contentRecord.raw_text && content && typeof content === 'object' && !content.raw_text) {
-      content.raw_text = contentRecord.raw_text;
+    if (contentRecord.raw_text && content && typeof content === 'object' && !(content as any).raw_text) {
+      (content as any).raw_text = contentRecord.raw_text;
     }
   } else {
     console.log("No document_content found or empty array");
