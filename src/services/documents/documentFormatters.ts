@@ -2,6 +2,8 @@
 import { Document, ValidationCheck, ValidationIssue } from '@/types/documents';
 
 export function formatDocumentFromSupabase(supabaseDoc: any): Document {
+  console.log("Formatting document from Supabase:", supabaseDoc);
+  
   // Extract validation checks from document_validations with rule details
   const validationChecks: ValidationCheck[] = (supabaseDoc.document_validations || []).map((validation: any) => ({
     name: validation.validation_rules?.rule_name || 'Unknown Rule',
@@ -17,8 +19,32 @@ export function formatDocumentFromSupabase(supabaseDoc: any): Document {
     severity: issue.severity as 'low' | 'medium' | 'high'
   }));
 
-  // Get document content if available
-  const content = supabaseDoc.document_content?.[0]?.content || {};
+  // Get document content if available - IMPROVED CONTENT EXTRACTION
+  let content = {};
+  
+  if (supabaseDoc.document_content && Array.isArray(supabaseDoc.document_content) && supabaseDoc.document_content.length > 0) {
+    const contentRecord = supabaseDoc.document_content[0];
+    console.log("Raw content record:", contentRecord);
+    
+    // Try to get structured content first
+    if (contentRecord.content && typeof contentRecord.content === 'object') {
+      content = contentRecord.content;
+    }
+    
+    // If we have raw_text but no structured content, include it
+    if (contentRecord.raw_text && (!content || Object.keys(content).length === 0)) {
+      content = { raw_text: contentRecord.raw_text };
+    }
+    
+    // If structured content exists but no raw_text field, add it
+    if (contentRecord.raw_text && content && typeof content === 'object' && !content.raw_text) {
+      content.raw_text = contentRecord.raw_text;
+    }
+  } else {
+    console.log("No document_content found or empty array");
+  }
+  
+  console.log("Processed content:", content);
 
   // Calculate processing time if available
   let processingTime = null;
@@ -30,7 +56,7 @@ export function formatDocumentFromSupabase(supabaseDoc: any): Document {
     processingTime = `${diffSeconds}s`;
   }
 
-  return {
+  const formattedDocument = {
     id: supabaseDoc.id,
     title: supabaseDoc.title,
     type: supabaseDoc.type,
@@ -46,6 +72,9 @@ export function formatDocumentFromSupabase(supabaseDoc: any): Document {
     processingStarted: supabaseDoc.processing_started,
     processingCompleted: supabaseDoc.processing_completed
   };
+  
+  console.log("Final formatted document:", formattedDocument);
+  return formattedDocument;
 }
 
 // Map database validation status to our interface status

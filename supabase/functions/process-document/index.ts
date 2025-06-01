@@ -360,15 +360,27 @@ function parseValidationResult(validationResult) {
  * Update document status in database
  */
 async function updateDocumentStatus(supabase, documentId, status, progress, additionalFields = {}) {
-  return await supabase
+  console.log(`Updating document ${documentId}: status=${status}, progress=${progress}`);
+  
+  const updateData = { 
+    status, 
+    progress, 
+    last_updated: new Date().toISOString(),
+    ...additionalFields
+  };
+  
+  const { error } = await supabase
     .from("documents")
-    .update({ 
-      status, 
-      progress, 
-      last_updated: new Date().toISOString(),
-      ...additionalFields
-    })
+    .update(updateData)
     .eq("id", documentId);
+    
+  if (error) {
+    console.error("Error updating document status:", error);
+  } else {
+    console.log("Document status updated successfully");
+  }
+  
+  return { error };
 }
 
 /**
@@ -427,27 +439,35 @@ async function completeDocumentProcessing(supabase, documentId, validationIssues
   const processingEnd = new Date();
   const processingTime = processingEnd.getTime() - processingStart.getTime();
   
+  console.log(`Completing processing for document ${documentId}`);
+  console.log(`Validation issues found: ${validationIssues?.length || 0}`);
+  
   // Determine final status based on validation
   const hasCriticalIssues = validationIssues && validationIssues.some((issue) => issue.severity === "high");
   
-  // FIXED: Always set status to "pending_verification" or "rejected", never leave in "processing"
-  const finalStatus = hasCriticalIssues ? "rejected" : "pending_verification";
+  console.log(`Setting final status to: ${hasCriticalIssues ? "rejected" : "pending_verification"}`);
   
   // FIXED: Always update progress to 100% when processing is complete
-  await updateDocumentStatus(supabase, documentId, finalStatus, 100, {
+  const updateResult = await updateDocumentStatus(supabase, documentId, hasCriticalIssues ? "rejected" : "pending_verification", 100, {
     flagged: hasCriticalIssues,
-    processing_completed: new Date().toISOString(), // FIXED: Add completion timestamp
+    processing_completed: new Date().toISOString(),
     processing_time_ms: processingTime
   });
+  
+  if (updateResult.error) {
+    console.error("Failed to update document status:", updateResult.error);
+    throw new Error("Failed to complete document processing");
+  }
   
   // Add completion event to history
   const historyMessage = hasCriticalIssues 
     ? "Document has validation issues" 
     : "Document processed and awaiting verification";
     
-  await addDocumentHistoryEvent(supabase, documentId, finalStatus, historyMessage);
+  await addDocumentHistoryEvent(supabase, documentId, hasCriticalIssues ? "rejected" : "pending_verification", historyMessage);
   
-  return finalStatus;
+  console.log(`Document processing completed with status: ${hasCriticalIssues ? "rejected" : "pending_verification"}`);
+  return hasCriticalIssues ? "rejected" : "pending_verification";
 }
 
 /**
@@ -711,36 +731,33 @@ serve(async (req) => {
     
     // Extract document content
     const extractedContent = await extractDocumentContent(signedUrl.signedUrl, document.type);
-    console.log("Extracted content:", JSON.stringify(extractedContent).substring(0, 500) + "...");
+    console.log("Extracted content sample:", JSON.stringify(extractedContent).substring(0, 500) + "...");
     
-    // Store extracted content
-    const hasValidContent = extractedContent && 
-      (typeof extractedContent === 'object' && 
-       Object.keys(extractedContent).length > 0) ||
-      (extractedContent.raw_text && 
-       extractedContent.raw_text !== 'EMPTY');
-    
-    if (hasValidContent) {
-      // Delete existing content first
-      await supabase
-        .from("document_content")
-        .delete()
-        .eq("document_id", documentId);
+    // Store extracted content - ALWAYS store content even if it has errors
+    // Delete existing content first
+    await supabase
+      .from("document_content")
+      .delete()
+      .eq("document_id", documentId);
         
-      // Insert new content
-      const { error: contentError } = await supabase
-        .from("document_content")
-        .insert({
-          document_id: documentId,
-          content: extractedContent,
-          raw_text: typeof extractedContent === "string" ? extractedContent : JSON.stringify(extractedContent)
-        });
-      
-      if (contentError) {
-        console.error("Error storing document content:", contentError);
-      } else {
-        console.log("Document content stored successfully");
-      }
+    // Insert new content - ensure we always have some content stored
+    const contentToStore = extractedContent || { error: "No content extracted" };
+    const rawTextToStore = extractedContent?.raw_text || 
+                          (typeof extractedContent === "string" ? extractedContent : null) ||
+                          JSON.stringify(contentToStore);
+    
+    const { error: contentError } = await supabase
+      .from("document_content")
+      .insert({
+        document_id: documentId,
+        content: contentToStore,
+        raw_text: rawTextToStore
+      });
+    
+    if (contentError) {
+      console.error("Error storing document content:", contentError);
+    } else {
+      console.log("Document content stored successfully");
     }
     
     // Update progress
@@ -753,13 +770,20 @@ serve(async (req) => {
     
     console.log("Starting validation process...");
     
-    // Apply validation rules
-    const validationResult = await validateDocumentWithRules(
-      supabase, 
-      documentId, 
-      document.type, 
-      extractedContent
-    );
+    // Apply validation rules - only if we have content to validate
+    let validationResult = { validationChecks: [], validationIssues: [] };
+    
+    if (extractedContent && !extractedContent.error) {
+      validationResult = await validateDocumentWithRules(
+        supabase, 
+        documentId, 
+        document.type, 
+        extractedContent
+      );
+    } else {
+      console.log("Skipping validation due to content extraction errors");
+    }
+    
     const { validationChecks, validationIssues } = validationResult;
     
     console.log(`Validation completed: ${validationChecks.length} checks, ${validationIssues.length} issues`);
@@ -781,7 +805,7 @@ serve(async (req) => {
       }
     }
     
-    // Complete processing
+    // CRITICAL FIX: Complete processing - this ensures documents don't get stuck
     const finalStatus = await completeDocumentProcessing(
       supabase, 
       documentId, 
@@ -789,7 +813,7 @@ serve(async (req) => {
       processingStart
     );
     
-    console.log(`Document processing completed with status: ${finalStatus}`);
+    console.log(`Document processing completed successfully with status: ${finalStatus}`);
     
     return new Response(
       JSON.stringify({ 

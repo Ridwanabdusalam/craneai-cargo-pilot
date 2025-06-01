@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,7 +16,8 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
   // Comprehensive logging to debug the content structure
   console.log("DocumentContent component received:", content);
   console.log("Content type:", typeof content);
-  console.log("Content keys:", Object.keys(content));
+  console.log("Content keys:", Object.keys(content || {}));
+  console.log("Document status:", status);
   
   // Handle error content
   if (content && content.error) {
@@ -29,29 +31,37 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
   
-  // Check if we have actual content to display - this should be checked FIRST
+  // IMPROVED: Check if we have actual content to display
   const hasDisplayableContent = content && 
     typeof content === 'object' && 
-    (Object.keys(content).filter(key => key !== 'error').length > 0 || content.raw_text);
+    (
+      // Check for structured content (excluding error and raw_text keys)
+      Object.keys(content).filter(key => key !== 'error' && key !== 'raw_text').length > 0 ||
+      // OR check for raw_text content
+      (content.raw_text && content.raw_text.trim() !== '' && content.raw_text !== 'EMPTY')
+    );
   
-  console.log('DocumentContent - Content check:', {
+  console.log('DocumentContent - Enhanced content check:', {
     content,
     keys: content ? Object.keys(content) : [],
     hasDisplayableContent,
     hasRawText: !!content?.raw_text,
+    rawTextLength: content?.raw_text ? content.raw_text.length : 0,
     contentType: typeof content,
-    contentValue: content,
-    status
+    status,
+    structuredKeysCount: content ? Object.keys(content).filter(key => key !== 'error' && key !== 'raw_text').length : 0
   });
 
-  // If we have displayable content, show it regardless of processing status
+  // PRIORITY 1: If we have displayable content, show it regardless of processing status
   if (hasDisplayableContent) {
-    // Handle raw text display if that's all we have
-    if (content && content.raw_text && Object.keys(content).length === 1) {
+    console.log("Displaying content - content available");
+    
+    // Handle case where we only have raw text
+    if (content && content.raw_text && Object.keys(content).filter(key => key !== 'raw_text').length === 0) {
       return (
         <div className="p-4 border rounded-md">
           <h3 className="text-lg font-medium mb-4">Document Text</h3>
-          <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-sm">
+          <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-sm max-h-96 overflow-y-auto">
             {content.raw_text}
           </pre>
         </div>
@@ -62,8 +72,9 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     return renderEnhancedContent(content);
   }
 
-  // Only show processing indicator if we have NO content AND status is processing
+  // PRIORITY 2: Only show processing indicator if we have NO content AND status is processing
   if (status === 'processing') {
+    console.log("Showing processing indicator - no content and status is processing");
     return (
       <div className="text-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -72,7 +83,8 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
   
-  // No content available and not processing
+  // PRIORITY 3: No content available and not processing
+  console.log("Showing no content message");
   return (
     <div className="text-center p-8">
       <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-2" />
