@@ -2,12 +2,12 @@
 import { Document, ValidationCheck, ValidationIssue } from '@/types/documents';
 
 export function formatDocumentFromSupabase(supabaseDoc: any): Document {
-  // Extract validation checks from document_validations
+  // Extract validation checks from document_validations with rule details
   const validationChecks: ValidationCheck[] = (supabaseDoc.document_validations || []).map((validation: any) => ({
-    name: validation.details?.rule_name || 'Unknown Rule',
-    description: validation.details?.description || 'No description available',
+    name: validation.validation_rules?.rule_name || 'Unknown Rule',
+    description: validation.validation_rules?.description || validation.validation_rules?.error_message || 'No description available',
     status: mapValidationStatus(validation.status),
-    details: validation.details?.message || ''
+    details: validation.details?.result || ''
   }));
 
   // Extract validation issues

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { formatDocumentFromSupabase } from './documentFormatters';
 import { Document, DocumentFilters } from '@/types/documents';
@@ -11,7 +12,12 @@ export async function getAllDocuments(): Promise<Document[]> {
       document_validations(
         id,
         status,
-        details
+        details,
+        validation_rules(
+          rule_name,
+          error_message,
+          description
+        )
       ),
       validation_issues(
         id,
@@ -39,7 +45,12 @@ export async function getDocumentsByStatus(status: string): Promise<Document[]> 
       document_validations(
         id,
         status,
-        details
+        details,
+        validation_rules(
+          rule_name,
+          error_message,
+          description
+        )
       ),
       validation_issues(
         id,
@@ -68,7 +79,12 @@ export async function getDocumentById(id: string): Promise<Document | null> {
       document_validations(
         id,
         status,
-        details
+        details,
+        validation_rules(
+          rule_name,
+          error_message,
+          description
+        )
       ),
       validation_issues(
         id,
@@ -101,7 +117,12 @@ export async function searchDocuments(query: string): Promise<Document[]> {
       document_validations(
         id,
         status,
-        details
+        details,
+        validation_rules(
+          rule_name,
+          error_message,
+          description
+        )
       ),
       validation_issues(
         id,
