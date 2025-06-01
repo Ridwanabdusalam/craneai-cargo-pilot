@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Document } from '@/types/documents';
+import { sanitizeString } from '@/services/documents/documentSecurity';
 
 interface VerificationActionsProps {
   document: Document;
@@ -37,8 +38,22 @@ export const VerificationActions: React.FC<VerificationActionsProps> = ({
   };
   
   const handleRejectClick = () => {
-    onReject(rejectionReason);
+    // Sanitize the rejection reason before passing it up
+    const sanitizedReason = sanitizeString(rejectionReason, 1000);
+    if (sanitizedReason.trim().length === 0) {
+      return; // Don't submit empty reason
+    }
+    onReject(sanitizedReason);
     setIsRejectionDialogOpen(false);
+    setRejectionReason(''); // Clear the form
+  };
+
+  const handleRejectionReasonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    // Limit input length in real-time
+    if (value.length <= 1000) {
+      setRejectionReason(value);
+    }
   };
 
   // Only show verification/rejection buttons for pending_verification status
@@ -53,6 +68,7 @@ export const VerificationActions: React.FC<VerificationActionsProps> = ({
           <Button 
             size="sm" 
             className="bg-green-600 hover:bg-green-700"
+            disabled={loading}
           >
             <CheckCircle className="mr-2 h-4 w-4" />
             Verify Document
@@ -66,7 +82,13 @@ export const VerificationActions: React.FC<VerificationActionsProps> = ({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex space-x-2 justify-end">
-            <Button variant="outline" onClick={() => setIsVerificationDialogOpen(false)}>Cancel</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsVerificationDialogOpen(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
             <Button 
               onClick={handleVerifyClick} 
               className="bg-green-600 hover:bg-green-700"
@@ -83,6 +105,7 @@ export const VerificationActions: React.FC<VerificationActionsProps> = ({
           <Button 
             size="sm" 
             variant="destructive"
+            disabled={loading}
           >
             <XCircle className="mr-2 h-4 w-4" />
             Reject Document
@@ -97,18 +120,32 @@ export const VerificationActions: React.FC<VerificationActionsProps> = ({
           </DialogHeader>
           <div className="my-4">
             <Textarea 
-              placeholder="Reason for rejection"
+              placeholder="Reason for rejection (required, max 1000 characters)"
               value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
+              onChange={handleRejectionReasonChange}
               className="min-h-[100px]"
+              maxLength={1000}
+              disabled={loading}
             />
+            <div className="text-sm text-gray-500 mt-1">
+              {rejectionReason.length}/1000 characters
+            </div>
           </div>
           <DialogFooter className="flex space-x-2 justify-end">
-            <Button variant="outline" onClick={() => setIsRejectionDialogOpen(false)}>Cancel</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsRejectionDialogOpen(false);
+                setRejectionReason('');
+              }}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
             <Button 
               onClick={handleRejectClick} 
               variant="destructive"
-              disabled={loading || !rejectionReason.trim()}
+              disabled={loading || rejectionReason.trim().length === 0}
             >
               {loading ? 'Processing...' : 'Confirm Rejection'}
             </Button>

@@ -5,20 +5,49 @@ import { uploadDocument, verifyDocument, rejectDocument, fixDocumentIssues } fro
 import { downloadDocument } from './documents/documentStorage';
 import { formatDocumentFromSupabase } from './documents/documentFormatters';
 import { validateDocumentContent, createSampleValidationRules, getValidationRules } from './documents/documentValidation';
+import { 
+  validateFile, 
+  validateDocumentTitle, 
+  validateDocumentType, 
+  sanitizeString,
+  validateUserId,
+  DEFAULT_SECURITY_CONFIG,
+  type FileValidationResult,
+  type DocumentSecurityConfig
+} from './documents/documentSecurity';
 
 export {
+  // Queries
   getAllDocuments,
   getDocumentById,
   getDocumentsByStatus,
   searchDocuments,
   createSampleDocuments,
+  
+  // Mutations
   uploadDocument,
   verifyDocument,
   rejectDocument,
   fixDocumentIssues,
+  
+  // Storage
   downloadDocument,
+  
+  // Formatters
   formatDocumentFromSupabase,
+  
+  // Validation
   validateDocumentContent,
   createSampleValidationRules,
-  getValidationRules
+  getValidationRules,
+  
+  // Security
+  validateFile,
+  validateDocumentTitle,
+  validateDocumentType,
+  sanitizeString,
+  validateUserId,
+  DEFAULT_SECURITY_CONFIG,
+  type FileValidationResult,
+  type DocumentSecurityConfig
 };
