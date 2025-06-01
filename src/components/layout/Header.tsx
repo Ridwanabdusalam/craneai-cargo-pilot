@@ -17,9 +17,11 @@ import { useAuth } from '@/context/AuthContext';
 
 interface HeaderProps {
   toggleSidebar?: () => void;
+  title?: string;
+  subtitle?: string;
 }
 
-const Header = ({ toggleSidebar }: HeaderProps) => {
+const Header = ({ toggleSidebar, title, subtitle }: HeaderProps) => {
   const { user, signOut } = useAuth();
 
   const getInitials = (name: string) => {
@@ -38,7 +40,18 @@ const Header = ({ toggleSidebar }: HeaderProps) => {
             <Menu className="h-5 w-5" />
           </Button>
         )}
-        <div className="flex flex-1 items-center justify-end space-x-4">
+        
+        {/* Page Title Section */}
+        {title && (
+          <div className="flex-1 mr-4">
+            <h1 className="text-xl font-bold text-crane-blue">{title}</h1>
+            {subtitle && (
+              <p className="text-sm text-muted-foreground">{subtitle}</p>
+            )}
+          </div>
+        )}
+        
+        <div className="flex items-center justify-end space-x-4 ml-auto">
           <nav className="flex items-center space-x-2">
             <Button variant="ghost" size="icon">
               <Bell className="h-5 w-5" />
