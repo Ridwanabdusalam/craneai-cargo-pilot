@@ -107,6 +107,21 @@ const LogisticsControl = () => {
   });
   const [riskMapDialog, setRiskMapDialog] = useState(false);
 
+  // Calculate risk counts from shipment alerts
+  const riskCounts = useMemo(() => {
+    const counts = {
+      high: 0,
+      medium: 0,
+      low: 0
+    };
+    
+    shipmentAlerts.forEach(alert => {
+      counts[alert.severity]++;
+    });
+    
+    return counts;
+  }, []);
+
   // Filter and search logic
   const filteredAlerts = useMemo(() => {
     let alerts = [...shipmentAlerts];
@@ -216,7 +231,7 @@ const LogisticsControl = () => {
                 <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
                 <span className="text-sm font-medium">High Risk</span>
               </div>
-              <span className="text-lg font-bold">2</span>
+              <span className="text-lg font-bold">{riskCounts.high}</span>
             </div>
             
             <div className="flex justify-between items-center p-3 bg-yellow-50 border border-yellow-100 rounded-md">
@@ -224,7 +239,7 @@ const LogisticsControl = () => {
                 <div className="w-3 h-3 rounded-full bg-yellow-500 mr-2"></div>
                 <span className="text-sm font-medium">Medium Risk</span>
               </div>
-              <span className="text-lg font-bold">5</span>
+              <span className="text-lg font-bold">{riskCounts.medium}</span>
             </div>
             
             <div className="flex justify-between items-center p-3 bg-blue-50 border border-blue-100 rounded-md">
@@ -232,7 +247,7 @@ const LogisticsControl = () => {
                 <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
                 <span className="text-sm font-medium">Low Risk</span>
               </div>
-              <span className="text-lg font-bold">8</span>
+              <span className="text-lg font-bold">{riskCounts.low}</span>
             </div>
             
             <Button 
