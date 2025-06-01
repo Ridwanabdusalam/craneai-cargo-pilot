@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingUp, BarChart3, Ship, Plane, Truck, Search, CalendarIcon } from 'lucide-react';
@@ -118,10 +117,6 @@ const SmartQuote = () => {
   
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-crane-blue">SmartQuote Optimizer</h1>
-        <p className="text-muted-foreground">Intelligent freight quoting and lane optimization</p>
-      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>

@@ -29,11 +29,6 @@ import {
 const Settings = () => {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-crane-blue">Settings</h1>
-        <p className="text-muted-foreground">Manage system settings and configurations</p>
-      </div>
-      
       <Tabs defaultValue="account" className="w-full">
         <TabsList className="flex h-auto flex-wrap justify-start border-b border-border p-0 mb-6">
           <TabsTrigger value="account" className="rounded-none border-b-2 border-transparent py-3 px-6 data-[state=active]:border-b-crane-blue data-[state=active]:bg-transparent">
