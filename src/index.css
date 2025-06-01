@@ -131,6 +131,11 @@
   .crane-button-accent {
     @apply bg-crane-coral text-white hover:bg-opacity-90 px-3.5 py-2 rounded-md font-medium transition-colors shadow-sm;
   }
+
+  /* Sticky page header utility */
+  .sticky-page-header {
+    @apply sticky top-16 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 pb-4 mb-6;
+  }
 }
 
 /* Animation Utilities */

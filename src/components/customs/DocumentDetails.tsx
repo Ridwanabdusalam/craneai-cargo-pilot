@@ -59,7 +59,7 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
   const handleVerifyDocument = async () => {
     setLoading(true);
     try {
-      await verifyDocument(document.id, currentUserId);
+      await verifyDocument(document.id);
       toast.success('Document verified successfully');
       if (onUpdate) onUpdate();
     } catch (error: any) {
@@ -78,7 +78,7 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
     
     setLoading(true);
     try {
-      await rejectDocument(document.id, currentUserId, rejectionReason);
+      await rejectDocument(document.id, rejectionReason);
       toast.success('Document rejected successfully');
       if (onUpdate) onUpdate();
     } catch (error: any) {

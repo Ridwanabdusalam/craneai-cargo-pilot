@@ -8,7 +8,7 @@ import ChatWindow from '@/components/ai-support/ChatWindow';
 const SupportHub = () => {
   return (
     <div className="space-y-6">
-      <div>
+      <div className="sticky-page-header">
         <h1 className="text-2xl font-bold tracking-tight">Support Hub</h1>
         <p className="text-muted-foreground">
           Get assistance with your logistics needs and documentation
