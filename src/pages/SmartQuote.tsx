@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import PriceCard from '@/components/quoting/PriceCard';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   BarChart,
   Bar,
@@ -35,9 +36,84 @@ const laneData = [
 
 const SmartQuote = () => {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
+  const [quotePrompt, setQuotePrompt] = React.useState('');
+  const [selectedModes, setSelectedModes] = React.useState<string[]>([]);
+  const [isGenerating, setIsGenerating] = React.useState(false);
+  const [quoteResults, setQuoteResults] = React.useState<any>(null);
+  const [activeTab, setActiveTab] = React.useState('ocean');
   
-  const handleGenerateQuote = () => {
-    toast.success("Quote request submitted for processing!");
+  const handleModeToggle = (mode: string) => {
+    setSelectedModes(prev => 
+      prev.includes(mode) 
+        ? prev.filter(m => m !== mode)
+        : [...prev, mode]
+    );
+  };
+
+  const handleGenerateQuote = async () => {
+    if (!quotePrompt.trim()) {
+      toast.error("Please describe your shipment needs");
+      return;
+    }
+
+    setIsGenerating(true);
+    toast.loading("Generating AI-powered quotes...", { id: 'quote-generation' });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-smart-quote', {
+        body: {
+          prompt: quotePrompt,
+          shipDate: date ? format(date, "PPP") : undefined,
+          selectedModes: selectedModes.length > 0 ? selectedModes : ['ocean', 'air', 'multimodal']
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('Quote results received:', data);
+      setQuoteResults(data);
+      
+      // Set active tab to the first available mode
+      const availableModes = Object.keys(data.modes || {});
+      if (availableModes.length > 0) {
+        setActiveTab(availableModes[0]);
+      }
+
+      toast.success("Quote options generated successfully!", { id: 'quote-generation' });
+    } catch (error) {
+      console.error('Error generating quote:', error);
+      toast.error("Failed to generate quotes. Please try again.", { id: 'quote-generation' });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const renderQuoteOptions = (options: any[]) => {
+    if (!options || options.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-52">
+          <p className="text-muted-foreground">No quotes available for this transport mode</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {options.map((option, index) => (
+          <PriceCard
+            key={index}
+            title={option.title}
+            price={option.price}
+            priceTrend={option.priceTrend}
+            trendPercentage={option.trendPercentage}
+            validUntil={option.validUntil}
+            recommended={option.recommended}
+          />
+        ))}
+      </div>
+    );
   };
   
   return (
@@ -108,6 +184,8 @@ const SmartQuote = () => {
               <Textarea 
                 placeholder="Describe your shipment needs in natural language. For example: 'I need to ship 2 containers of electronics from Shanghai to Los Angeles in the first week of June.'"
                 className="h-[120px]"
+                value={quotePrompt}
+                onChange={(e) => setQuotePrompt(e.target.value)}
               />
               
               <div className="grid grid-cols-2 gap-4">
@@ -138,19 +216,31 @@ const SmartQuote = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Transport Mode</label>
+                  <label className="text-sm font-medium">Transport Mode (Optional)</label>
                   <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1">
+                    <Button 
+                      variant={selectedModes.includes('ocean') ? "default" : "outline"} 
+                      className="flex-1"
+                      onClick={() => handleModeToggle('ocean')}
+                    >
                       <Ship size={16} className="mr-2" />
                       Ocean
                     </Button>
-                    <Button variant="outline" className="flex-1">
+                    <Button 
+                      variant={selectedModes.includes('air') ? "default" : "outline"} 
+                      className="flex-1"
+                      onClick={() => handleModeToggle('air')}
+                    >
                       <Plane size={16} className="mr-2" />
                       Air
                     </Button>
-                    <Button variant="outline" className="flex-1">
+                    <Button 
+                      variant={selectedModes.includes('multimodal') ? "default" : "outline"} 
+                      className="flex-1"
+                      onClick={() => handleModeToggle('multimodal')}
+                    >
                       <Truck size={16} className="mr-2" />
-                      Road
+                      Multi
                     </Button>
                   </div>
                 </div>
@@ -159,9 +249,10 @@ const SmartQuote = () => {
               <Button 
                 onClick={handleGenerateQuote}
                 className="w-full bg-crane-blue hover:bg-opacity-90"
+                disabled={isGenerating}
               >
                 <Search size={16} className="mr-2" />
-                Generate Quote Options
+                {isGenerating ? 'Generating...' : 'Generate Quote Options'}
               </Button>
             </div>
           </CardContent>
@@ -175,70 +266,68 @@ const SmartQuote = () => {
               <DollarSign size={18} className="text-crane-teal mr-2" />
               Smart Quote Results
             </CardTitle>
-            <Badge variant="outline">Shanghai to Los Angeles • 2 Containers</Badge>
+            {quoteResults && (
+              <Badge variant="outline">
+                {quoteResults.origin} to {quoteResults.destination} • {quoteResults.quantity}
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="ocean" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="ocean" className="flex items-center">
-                <Ship size={16} className="mr-2" />
-                Ocean
-              </TabsTrigger>
-              <TabsTrigger value="air" className="flex items-center">
-                <Plane size={16} className="mr-2" />
-                Air
-              </TabsTrigger>
-              <TabsTrigger value="multi" className="flex items-center">
-                <Truck size={16} className="mr-2" />
-                Multi-modal
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="ocean" className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <PriceCard
-                  title="Standard Service"
-                  price={3250}
-                  priceTrend="up"
-                  trendPercentage={5}
-                  validUntil="May 30, 2025"
-                />
-                <PriceCard
-                  title="Express Service"
-                  price={4500}
-                  priceTrend="down"
-                  trendPercentage={3}
-                  validUntil="May 25, 2025"
-                  recommended={true}
-                />
-                <PriceCard
-                  title="Economy Service"
-                  price={2950}
-                  priceTrend="stable"
-                  validUntil="June 5, 2025"
-                />
-              </div>
+          {!quoteResults ? (
+            <div className="flex flex-col items-center justify-center h-52 text-center">
+              <Search size={48} className="text-muted-foreground opacity-20 mb-4" />
+              <p className="text-muted-foreground">Generate a quote to see results here</p>
+            </div>
+          ) : (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                {quoteResults.modes.ocean && (
+                  <TabsTrigger value="ocean" className="flex items-center">
+                    <Ship size={16} className="mr-2" />
+                    Ocean
+                  </TabsTrigger>
+                )}
+                {quoteResults.modes.air && (
+                  <TabsTrigger value="air" className="flex items-center">
+                    <Plane size={16} className="mr-2" />
+                    Air
+                  </TabsTrigger>
+                )}
+                {quoteResults.modes.multimodal && (
+                  <TabsTrigger value="multimodal" className="flex items-center">
+                    <Truck size={16} className="mr-2" />
+                    Multi-modal
+                  </TabsTrigger>
+                )}
+              </TabsList>
               
-              <div className="mt-6 bg-muted/50 rounded-lg p-4 border border-border">
-                <h3 className="text-sm font-medium mb-2">Market Intelligence:</h3>
-                <p className="text-sm text-muted-foreground">
-                  Rates on the Shanghai to Los Angeles route are expected to increase by 5-7% next month due to peak season demand. 
-                  Booking within the next 7 days is recommended to secure current pricing. 
-                  Current capacity utilization on this lane is at 82%.
-                </p>
-              </div>
-            </TabsContent>
-            <TabsContent value="air">
-              <div className="flex items-center justify-center h-52">
-                <p className="text-muted-foreground">Air freight quote options will appear here</p>
-              </div>
-            </TabsContent>
-            <TabsContent value="multi">
-              <div className="flex items-center justify-center h-52">
-                <p className="text-muted-foreground">Multi-modal quote options will appear here</p>
-              </div>
-            </TabsContent>
-          </Tabs>
+              {quoteResults.modes.ocean && (
+                <TabsContent value="ocean" className="mt-4">
+                  {renderQuoteOptions(quoteResults.modes.ocean)}
+                  
+                  <div className="mt-6 bg-muted/50 rounded-lg p-4 border border-border">
+                    <h3 className="text-sm font-medium mb-2">Market Intelligence:</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {quoteResults.marketIntelligence}
+                    </p>
+                  </div>
+                </TabsContent>
+              )}
+              
+              {quoteResults.modes.air && (
+                <TabsContent value="air" className="mt-4">
+                  {renderQuoteOptions(quoteResults.modes.air)}
+                </TabsContent>
+              )}
+              
+              {quoteResults.modes.multimodal && (
+                <TabsContent value="multimodal" className="mt-4">
+                  {renderQuoteOptions(quoteResults.modes.multimodal)}
+                </TabsContent>
+              )}
+            </Tabs>
+          )}
         </CardContent>
       </Card>
     </div>
