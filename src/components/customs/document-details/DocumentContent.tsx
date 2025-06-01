@@ -29,10 +29,10 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
   
-  // Check if we have actual content to display
+  // Check if we have actual content to display - this should be checked FIRST
   const hasDisplayableContent = content && 
     typeof content === 'object' && 
-    Object.keys(content).filter(key => key !== 'error').length > 0;
+    (Object.keys(content).filter(key => key !== 'error').length > 0 || content.raw_text);
   
   console.log('DocumentContent - Content check:', {
     content,
@@ -40,11 +40,30 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     hasDisplayableContent,
     hasRawText: !!content?.raw_text,
     contentType: typeof content,
-    contentValue: content
+    contentValue: content,
+    status
   });
 
-  // Only show processing indicator if status is processing AND we have no displayable content
-  if (status === 'processing' && !hasDisplayableContent) {
+  // If we have displayable content, show it regardless of processing status
+  if (hasDisplayableContent) {
+    // Handle raw text display if that's all we have
+    if (content && content.raw_text && Object.keys(content).length === 1) {
+      return (
+        <div className="p-4 border rounded-md">
+          <h3 className="text-lg font-medium mb-4">Document Text</h3>
+          <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-sm">
+            {content.raw_text}
+          </pre>
+        </div>
+      );
+    }
+
+    // Show enhanced content if we have structured content
+    return renderEnhancedContent(content);
+  }
+
+  // Only show processing indicator if we have NO content AND status is processing
+  if (status === 'processing') {
     return (
       <div className="text-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -53,23 +72,7 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
   
-  // Handle raw text display if that's all we have
-  if (content && content.raw_text && Object.keys(content).length === 1) {
-    return (
-      <div className="p-4 border rounded-md">
-        <h3 className="text-lg font-medium mb-4">Document Text</h3>
-        <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-sm">
-          {content.raw_text}
-        </pre>
-      </div>
-    );
-  }
-
-  if (hasDisplayableContent) {
-    return renderEnhancedContent(content);
-  }
-  
-  // No content available
+  // No content available and not processing
   return (
     <div className="text-center p-8">
       <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-2" />
