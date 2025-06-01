@@ -8,10 +8,8 @@ export async function getAllDocuments(): Promise<Document[]> {
     .from('documents')
     .select(`
       *,
-      validation_checks(
+      document_validations(
         id,
-        name,
-        description,
         status,
         details
       ),
@@ -38,10 +36,8 @@ export async function getDocumentsByStatus(status: string): Promise<Document[]> 
     .from('documents')
     .select(`
       *,
-      validation_checks(
+      document_validations(
         id,
-        name,
-        description,
         status,
         details
       ),
@@ -69,10 +65,8 @@ export async function getDocumentById(id: string): Promise<Document | null> {
     .from('documents')
     .select(`
       *,
-      validation_checks(
+      document_validations(
         id,
-        name,
-        description,
         status,
         details
       ),
@@ -104,10 +98,8 @@ export async function searchDocuments(query: string): Promise<Document[]> {
     .from('documents')
     .select(`
       *,
-      validation_checks(
+      document_validations(
         id,
-        name,
-        description,
         status,
         details
       ),

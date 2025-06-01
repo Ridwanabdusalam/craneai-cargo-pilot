@@ -2,12 +2,12 @@
 import { Document, ValidationCheck, ValidationIssue } from '@/types/documents';
 
 export function formatDocumentFromSupabase(supabaseDoc: any): Document {
-  // Extract validation checks
-  const validationChecks: ValidationCheck[] = (supabaseDoc.validation_checks || []).map((check: any) => ({
-    name: check.name,
-    description: check.description,
-    status: check.status as 'passed' | 'failed' | 'pending',
-    details: check.details || ''
+  // Extract validation checks from document_validations
+  const validationChecks: ValidationCheck[] = (supabaseDoc.document_validations || []).map((validation: any) => ({
+    name: validation.details?.rule_name || 'Unknown Rule',
+    description: validation.details?.description || 'No description available',
+    status: mapValidationStatus(validation.status),
+    details: validation.details?.message || ''
   }));
 
   // Extract validation issues
@@ -46,4 +46,16 @@ export function formatDocumentFromSupabase(supabaseDoc: any): Document {
     processingStarted: supabaseDoc.processing_started,
     processingCompleted: supabaseDoc.processing_completed
   };
+}
+
+// Map database validation status to our interface status
+function mapValidationStatus(dbStatus: string): 'passed' | 'failed' | 'pending' {
+  switch (dbStatus) {
+    case 'pass':
+      return 'passed';
+    case 'fail':
+      return 'failed';
+    default:
+      return 'pending';
+  }
 }
