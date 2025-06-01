@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -30,9 +29,22 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
     );
   }
   
-  // Only show processing indicator if status is processing AND we have no content
-  // This allows showing content even during processing if it's available
-  if (status === 'processing' && (!content || Object.keys(content).filter(key => key !== 'error').length === 0)) {
+  // Check if we have actual content to display
+  const hasDisplayableContent = content && 
+    typeof content === 'object' && 
+    Object.keys(content).filter(key => key !== 'error').length > 0;
+  
+  console.log('DocumentContent - Content check:', {
+    content,
+    keys: content ? Object.keys(content) : [],
+    hasDisplayableContent,
+    hasRawText: !!content?.raw_text,
+    contentType: typeof content,
+    contentValue: content
+  });
+
+  // Only show processing indicator if status is processing AND we have no displayable content
+  if (status === 'processing' && !hasDisplayableContent) {
     return (
       <div className="text-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -51,26 +63,6 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({ content, statu
         </pre>
       </div>
     );
-  }
-  
-  // Check if we have actual content to display
-  const hasDisplayableContent = content && 
-    typeof content === 'object' && 
-    (Object.keys(content).length > 0 || content.raw_text);
-  
-  console.log('DocumentContent - Content check:', {
-    content,
-    keys: content ? Object.keys(content) : [],
-    hasDisplayableContent,
-    hasRawText: !!content?.raw_text,
-    hasItems: Array.isArray(content?.items),
-    contentType: typeof content,
-    contentValue: content
-  });
-
-  // If we have content but it's an empty object, try to handle it
-  if (content && typeof content === 'object' && Object.keys(content).length === 0) {
-    console.log('Content is an empty object, checking for raw text or other content');
   }
 
   if (hasDisplayableContent) {
