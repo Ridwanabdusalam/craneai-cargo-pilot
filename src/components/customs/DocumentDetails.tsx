@@ -59,16 +59,12 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
   const handleVerifyDocument = async () => {
     setLoading(true);
     try {
-      const result = await verifyDocument(document.id, currentUserId);
-      if (result.success) {
-        toast.success(result.message);
-        if (onUpdate) onUpdate();
-      } else {
-        toast.error(result.message);
-      }
-    } catch (error) {
+      await verifyDocument(document.id, currentUserId);
+      toast.success('Document verified successfully');
+      if (onUpdate) onUpdate();
+    } catch (error: any) {
       console.error('Error verifying document:', error);
-      toast.error('Failed to verify the document. Please try again.');
+      toast.error(error.message || 'Failed to verify the document. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -82,16 +78,12 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
     
     setLoading(true);
     try {
-      const result = await rejectDocument(document.id, currentUserId, rejectionReason);
-      if (result.success) {
-        toast.success(result.message);
-        if (onUpdate) onUpdate();
-      } else {
-        toast.error(result.message);
-      }
-    } catch (error) {
+      await rejectDocument(document.id, currentUserId, rejectionReason);
+      toast.success('Document rejected successfully');
+      if (onUpdate) onUpdate();
+    } catch (error: any) {
       console.error('Error rejecting document:', error);
-      toast.error('Failed to reject the document. Please try again.');
+      toast.error(error.message || 'Failed to reject the document. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -100,16 +92,12 @@ const DocumentDetails: React.FC<DocumentDetailsProps> = ({ document, onBack, onU
   const handleFixIssues = async () => {
     setLoading(true);
     try {
-      const result = await fixDocumentIssues(document.id, {});
-      if (result.success) {
-        toast.success(result.message);
-        if (onUpdate) onUpdate();
-      } else {
-        toast.error(result.message);
-      }
-    } catch (error) {
+      await fixDocumentIssues(document.id, {});
+      toast.success('Document issues fixed successfully');
+      if (onUpdate) onUpdate();
+    } catch (error: any) {
       console.error('Error fixing document issues:', error);
-      toast.error('Failed to fix document issues. Please try again.');
+      toast.error(error.message || 'Failed to fix document issues. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from 'sonner';
 import { Progress } from "@/components/ui/progress";
-import { uploadDocument } from '@/services/documents/documentMutations';
+import { uploadDocument } from '@/services/documentService';
 import { useAuth } from '@/context/AuthContext';
 
 interface DocumentUploadProps {
@@ -120,8 +121,12 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
     try {
       console.log('Starting document upload...', {file: file.name, title, userId: user.id});
       
-      // Pass the user ID to the upload function
-      const result = await uploadDocument(file, title, user.id);
+      // Use the new uploadDocument function signature
+      const result = await uploadDocument({
+        file,
+        title,
+        type: 'Invoice' // Default type for now
+      });
       
       // Ensure progress reaches 100%
       clearInterval(interval);
