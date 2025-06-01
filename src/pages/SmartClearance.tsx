@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { FileText, Upload, FilterX, Filter, Search, SortAsc } from 'lucide-react';
@@ -291,10 +290,6 @@ const SmartClearance = () => {
   
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-crane-blue">SmartClearance Engine</h1>
-        <p className="text-muted-foreground">Automated customs document processing and validation</p>
-      </div>
       
       <Card>
         <CardHeader className="pb-2">
