@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -31,11 +30,9 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-crane-blue">CraneAI Logistics Suite</h1>
-          <p className="text-muted-foreground">Welcome to your intelligent logistics command center</p>
-        </div>
+      <div className="sticky-page-header">
+        <h1 className="text-2xl font-bold text-crane-blue">CraneAI Logistics Suite</h1>
+        <p className="text-muted-foreground">Welcome to your intelligent logistics command center</p>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
