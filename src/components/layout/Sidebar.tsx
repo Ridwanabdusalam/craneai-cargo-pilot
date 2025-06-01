@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
@@ -8,7 +7,8 @@ import {
   BarChart3, 
   Settings, 
   Home,
-  LogOut
+  LogOut,
+  Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -48,7 +48,7 @@ const Sidebar = ({ isMobile, isOpen, setIsOpen }: SidebarProps) => {
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center space-x-2">
           <div className="w-10 h-10 bg-crane-teal rounded-md flex items-center justify-center">
-            <span className="font-bold text-white text-xl">C</span>
+            <Globe size={20} className="text-white" />
           </div>
           <div>
             <h1 className="font-bold text-white text-lg">CraneAI</h1>
