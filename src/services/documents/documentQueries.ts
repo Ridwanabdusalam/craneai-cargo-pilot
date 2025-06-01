@@ -1,242 +1,136 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Document, DocumentStatus } from '@/types/documents';
 import { formatDocumentFromSupabase } from './documentFormatters';
+import { Document, DocumentFilters } from '@/types/documents';
 
 // Get all documents
-export const getAllDocuments = async (): Promise<Document[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select(`
-        *,
-        document_content (
-          id,
-          content,
-          raw_text,
-          created_at
-        )
-      `)
-      .order('last_updated', { ascending: false });
+export async function getAllDocuments(): Promise<Document[]> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select(`
+      *,
+      validation_checks(
+        id,
+        name,
+        description,
+        status,
+        details
+      ),
+      validation_issues(
+        id,
+        field,
+        issue,
+        severity
+      )
+    `)
+    .order('created_at', { ascending: false });
 
-    if (error) {
-      throw error;
-    }
-
-    // Format each document with its content
-    const formattedDocuments = await Promise.all(data.map(async (doc) => {
-      // Find the most recent content
-      const latestContent = doc.document_content && doc.document_content.length > 0
-        ? doc.document_content[0]
-        : null;
-
-      // Format the document with content
-      return formatDocumentFromSupabase({
-        ...doc,
-        document_content: latestContent ? [latestContent] : [],
-        validation_issues: [] // Will be loaded when viewing details
-      });
-    }));
-
-    return formattedDocuments;
-  } catch (error) {
-    console.error('Error fetching all documents:', error);
+  if (error) {
+    console.error('Error fetching documents:', error);
     throw error;
   }
-};
+
+  return (data || []).map(formatDocumentFromSupabase);
+}
 
 // Get documents by status
-export const getDocumentsByStatus = async (status: DocumentStatus): Promise<Document[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select(`
-        *,
-        document_content (
-          id,
-          content,
-          raw_text,
-          created_at
-        )
-      `)
-      .eq('status', status)
-      .order('last_updated', { ascending: false });
+export async function getDocumentsByStatus(status: string): Promise<Document[]> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select(`
+      *,
+      validation_checks(
+        id,
+        name,
+        description,
+        status,
+        details
+      ),
+      validation_issues(
+        id,
+        field,
+        issue,
+        severity
+      )
+    `)
+    .eq('status', status)
+    .order('created_at', { ascending: false });
 
-    if (error) {
-      throw error;
-    }
-
-    // Format each document with its content
-    const formattedDocuments = await Promise.all(data.map(async (doc) => {
-      // Find the most recent content
-      const latestContent = doc.document_content && doc.document_content.length > 0
-        ? doc.document_content[0]
-        : null;
-
-      // Format the document with content
-      return formatDocumentFromSupabase({
-        ...doc,
-        document_content: latestContent ? [latestContent] : [],
-        validation_issues: [] // Will be loaded when viewing details
-      });
-    }));
-
-    return formattedDocuments;
-  } catch (error) {
-    console.error(`Error fetching documents with status ${status}:`, error);
+  if (error) {
+    console.error('Error fetching documents by status:', error);
     throw error;
   }
-};
+
+  return (data || []).map(formatDocumentFromSupabase);
+}
 
 // Get document by ID with enhanced content extraction
-export const getDocumentById = async (id: string): Promise<Document> => {
-  try {
-    console.log(`Fetching document with ID: ${id}`);
-    
-    // First, get the document metadata
-    const { data: documentData, error: documentError } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('id', id)
-      .single();
+export async function getDocumentById(id: string): Promise<Document | null> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select(`
+      *,
+      validation_checks(
+        id,
+        name,
+        description,
+        status,
+        details
+      ),
+      validation_issues(
+        id,
+        field,
+        issue,
+        severity
+      ),
+      document_content(
+        content,
+        raw_text
+      )
+    `)
+    .eq('id', id)
+    .single();
 
-    if (documentError) {
-      console.error('Error fetching document metadata:', documentError);
-      throw documentError;
-    }
-    
-    console.log('Document metadata fetched:', documentData);
-
-    // Get validation issues for this document
-    const { data: validationIssues, error: issuesError } = await supabase
-      .from('validation_issues')
-      .select('*')
-      .eq('document_id', id);
-
-    if (issuesError) {
-      console.error('Error fetching validation issues:', issuesError);
-    }
-    
-    console.log('Validation issues fetched:', validationIssues?.length || 0);
-
-    // Get document content with improved extraction
-    const { data: contentData, error: contentError } = await supabase
-      .from('document_content')
-      .select('*')
-      .eq('document_id', id)
-      .order('created_at', { ascending: false }) // Get the most recent record first
-      .limit(1); // Only get the most recent record
-
-    if (contentError) {
-      console.error('Error fetching document content:', contentError);
-    } else {
-      console.log('Document content fetched:', contentData && contentData.length > 0 ? 'Content available' : 'No content');
-      if (contentData && contentData.length > 0) {
-        console.log('Content keys:', Object.keys(contentData[0]));
-        
-        // Log more detailed information about the content structure
-        if (contentData[0].content) {
-          console.log('Content type:', typeof contentData[0].content);
-          if (typeof contentData[0].content === 'object') {
-            console.log('Content keys:', Object.keys(contentData[0].content));
-          } else {
-            console.log('Content is not an object, might need parsing');
-          }
-        }
-        
-        // Log raw text info
-        if (contentData[0].raw_text) {
-          console.log('Raw text length:', contentData[0].raw_text.length);
-          console.log('Raw text preview:', contentData[0].raw_text.substring(0, 100));
-        }
-      }
-    }
-
-    // Enhanced content extraction with better error handling
-    let contentObject = {};
-    
-    if (contentData && contentData.length > 0) {
-      console.log('Raw contentData from database:', contentData[0]);
-      
-      // First, try to use the content field directly if it exists and is an object
-      if (contentData[0].content && typeof contentData[0].content === 'object') {
-        contentObject = contentData[0].content;
-        console.log('Using content object directly:', contentObject);
-      } 
-      // If content is a string, try to parse it as JSON
-      else if (contentData[0].content && typeof contentData[0].content === 'string') {
-        try {
-          contentObject = JSON.parse(contentData[0].content);
-          console.log('Parsed content from string:', contentObject);
-        } catch (e) {
-          console.error('Error parsing content string:', e);
-          contentObject = { error: 'Failed to parse content' };
-        }
-      }
-      // If we have raw_text but no content, try to parse that
-      else if (contentData[0].raw_text) {
-        try {
-          const parsed = JSON.parse(contentData[0].raw_text);
-          contentObject = parsed;
-          console.log('Parsed content from raw_text:', contentObject);
-        } catch (e) {
-          console.error('Error parsing raw_text:', e);
-          contentObject = { raw_text: contentData[0].raw_text };
-        }
-      }
-    }
-
-    console.log('Final content object before formatting:', contentObject);
-    
-    // Format document with available data
-    const formattedDocument = formatDocumentFromSupabase({
-      ...documentData,
-      document_content: [
-        {
-          content: contentObject,
-          created_at: new Date().toISOString(),
-          document_id: id,
-          id: 'temp-id',
-          raw_text: contentData?.[0]?.raw_text || ''
-        }
-      ],
-      validation_issues: validationIssues || [],
-      validation_checks: []
-    });
-    
-    console.log('Formatted document with content:', {
-      hasContent: !!formattedDocument.content,
-      contentKeys: formattedDocument.content ? Object.keys(formattedDocument.content) : []
-    });
-    
-    return formattedDocument;
-  } catch (error) {
-    console.error('Error fetching document by ID:', error);
-    throw error;
+  if (error) {
+    console.error('Error fetching document:', error);
+    return null;
   }
-};
+
+  return data ? formatDocumentFromSupabase(data) : null;
+}
 
 // Search documents by title or type
-export const searchDocuments = async (query: string): Promise<Document[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .ilike('title', `%${query}%`)
-      .order('last_updated', { ascending: false });
+export async function searchDocuments(query: string): Promise<Document[]> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select(`
+      *,
+      validation_checks(
+        id,
+        name,
+        description,
+        status,
+        details
+      ),
+      validation_issues(
+        id,
+        field,
+        issue,
+        severity
+      )
+    `)
+    .or(`title.ilike.%${query}%,type.ilike.%${query}%`)
+    .order('created_at', { ascending: false });
 
-    if (error) {
-      throw error;
-    }
-
-    return data.map(formatDocumentFromSupabase);
-  } catch (error) {
+  if (error) {
     console.error('Error searching documents:', error);
     throw error;
   }
-};
+
+  return (data || []).map(formatDocumentFromSupabase);
+}
 
 // Create sample documents (for development/testing)
-export const createSampleDocuments = async (): Promise<void> => {
+export async function createSampleDocuments(): Promise<void> {
   try {
     const sampleDocuments = [
       {
@@ -291,4 +185,4 @@ export const createSampleDocuments = async (): Promise<void> => {
     console.error('Error creating sample documents:', error);
     throw error;
   }
-};
+}

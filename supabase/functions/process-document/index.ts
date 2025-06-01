@@ -454,7 +454,8 @@ async function completeDocumentProcessing(supabase, documentId, validationIssues
  * Validate document using predefined rules from database
  */
 async function validateDocumentWithRules(supabase, documentId, documentType, content) {
-  console.log("Validating document with predefined rules:", documentType);
+  console.log("Starting validation with predefined rules for document type:", documentType);
+  console.log("Document content:", JSON.stringify(content).substring(0, 200) + "...");
   
   try {
     // Get validation rules for this document type
@@ -469,12 +470,18 @@ async function validateDocumentWithRules(supabase, documentId, documentType, con
       return { validationChecks: [], validationIssues: [] };
     }
 
+    console.log(`Found ${rules?.length || 0} validation rules to apply`);
+
     const validationChecks = [];
     const validationIssues = [];
 
     // Apply each validation rule
     for (const rule of rules || []) {
+      console.log(`Applying rule: ${rule.rule_name} (${rule.condition_type})`);
+      
       const checkResult = applyValidationRule(rule, content);
+      
+      console.log(`Rule ${rule.rule_name} result:`, checkResult);
       
       // Map severity from database format to our format
       const mappedSeverity = mapSeverityFromDb(rule.severity);
@@ -494,8 +501,8 @@ async function validateDocumentWithRules(supabase, documentId, documentType, con
         });
       }
 
-      // Store validation result in database with correct status values
-      await supabase
+      // Store validation result in database
+      const { error: insertError } = await supabase
         .from("document_validations")
         .insert({
           document_id: documentId,
@@ -503,8 +510,32 @@ async function validateDocumentWithRules(supabase, documentId, documentType, con
           status: checkResult.passed ? "pass" : "fail",
           details: { result: checkResult.details }
         });
+
+      if (insertError) {
+        console.error("Error inserting validation result:", insertError);
+      } else {
+        console.log(`Stored validation result for rule ${rule.rule_name}`);
+      }
     }
 
+    // Also store validation checks in the validation_checks table
+    for (const check of validationChecks) {
+      const { error: checkError } = await supabase
+        .from("validation_checks")
+        .insert({
+          document_id: documentId,
+          name: check.name,
+          description: check.description,
+          status: check.status,
+          details: check.details
+        });
+
+      if (checkError) {
+        console.error("Error storing validation check:", checkError);
+      }
+    }
+
+    console.log(`Validation completed: ${validationChecks.length} checks, ${validationIssues.length} issues`);
     return { validationChecks, validationIssues };
   } catch (error) {
     console.error("Error validating document with rules:", error);
@@ -532,12 +563,16 @@ function mapSeverityFromDb(dbSeverity) {
  * Apply a single validation rule to content
  */
 function applyValidationRule(rule, content) {
+  console.log(`Applying rule ${rule.rule_name}: checking field ${rule.condition_field} with condition ${rule.condition_type}`);
+  
   const fieldValue = getFieldValue(content, rule.condition_field);
+  console.log(`Field value for ${rule.condition_field}:`, fieldValue);
   
   switch (rule.condition_type) {
     case "required":
+      const isPresent = fieldValue !== null && fieldValue !== undefined && fieldValue !== "";
       return {
-        passed: fieldValue !== null && fieldValue !== undefined && fieldValue !== "",
+        passed: isPresent,
         details: fieldValue ? `Field has value: ${fieldValue}` : "Field is missing or empty"
       };
       
@@ -548,8 +583,9 @@ function applyValidationRule(rule, content) {
       };
       
     case "contains":
+      const contains = fieldValue && fieldValue.toString().includes(rule.condition_value || "");
       return {
-        passed: fieldValue && fieldValue.toString().includes(rule.condition_value || ""),
+        passed: contains,
         details: `Checking if "${fieldValue}" contains "${rule.condition_value}"`
       };
       
@@ -632,6 +668,7 @@ serve(async (req) => {
     }
     
     const processingStart = new Date();
+    console.log(`Starting processing for document: ${documentId}`);
     
     // Update document status to processing
     await updateDocumentStatus(supabase, documentId, "processing", 10, {
@@ -657,6 +694,8 @@ serve(async (req) => {
       throw new Error(`Failed to fetch document: ${documentError?.message || "Document not found"}`);
     }
     
+    console.log(`Processing document: ${document.title} (${document.type})`);
+    
     // Get document file URL
     const { data: signedUrl } = await supabase
       .storage
@@ -672,6 +711,7 @@ serve(async (req) => {
     
     // Extract document content
     const extractedContent = await extractDocumentContent(signedUrl.signedUrl, document.type);
+    console.log("Extracted content:", JSON.stringify(extractedContent).substring(0, 500) + "...");
     
     // Store extracted content
     const hasValidContent = extractedContent && 
@@ -681,24 +721,39 @@ serve(async (req) => {
        extractedContent.raw_text !== 'EMPTY');
     
     if (hasValidContent) {
+      // Delete existing content first
       await supabase
         .from("document_content")
         .delete()
         .eq("document_id", documentId);
         
-      await supabase
+      // Insert new content
+      const { error: contentError } = await supabase
         .from("document_content")
         .insert({
           document_id: documentId,
           content: extractedContent,
           raw_text: typeof extractedContent === "string" ? extractedContent : JSON.stringify(extractedContent)
         });
+      
+      if (contentError) {
+        console.error("Error storing document content:", contentError);
+      } else {
+        console.log("Document content stored successfully");
+      }
     }
     
     // Update progress
     await updateDocumentStatus(supabase, documentId, "processing", 70);
     
-    // Use the new validation system with predefined rules
+    // Clear any existing validation data
+    await supabase.from("validation_checks").delete().eq("document_id", documentId);
+    await supabase.from("validation_issues").delete().eq("document_id", documentId);
+    await supabase.from("document_validations").delete().eq("document_id", documentId);
+    
+    console.log("Starting validation process...");
+    
+    // Apply validation rules
     const validationResult = await validateDocumentWithRules(
       supabase, 
       documentId, 
@@ -707,11 +762,24 @@ serve(async (req) => {
     );
     const { validationChecks, validationIssues } = validationResult;
     
-    // Store validation checks
-    await storeValidationChecks(supabase, documentId, validationChecks);
+    console.log(`Validation completed: ${validationChecks.length} checks, ${validationIssues.length} issues`);
     
     // Store validation issues if any
-    await storeValidationIssues(supabase, documentId, validationIssues);
+    if (validationIssues && validationIssues.length > 0) {
+      const formattedIssues = validationIssues.map((issue) => ({
+        document_id: documentId,
+        field: issue.field,
+        issue: issue.issue,
+        severity: issue.severity
+      }));
+      
+      const { error: issuesError } = await supabase.from("validation_issues").insert(formattedIssues);
+      if (issuesError) {
+        console.error("Error storing validation issues:", issuesError);
+      } else {
+        console.log(`Stored ${validationIssues.length} validation issues`);
+      }
+    }
     
     // Complete processing
     const finalStatus = await completeDocumentProcessing(
@@ -720,6 +788,8 @@ serve(async (req) => {
       validationIssues, 
       processingStart
     );
+    
+    console.log(`Document processing completed with status: ${finalStatus}`);
     
     return new Response(
       JSON.stringify({ 

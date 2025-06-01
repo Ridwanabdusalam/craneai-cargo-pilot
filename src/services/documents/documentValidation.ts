@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { ValidationCheck, ValidationIssue } from '@/types/documents';
 
@@ -201,6 +200,17 @@ function getFieldValue(obj: any, fieldPath: string): any {
  * Create sample validation rules for testing
  */
 export async function createSampleValidationRules() {
+  // First check if rules already exist
+  const { data: existingRules } = await supabase
+    .from('validation_rules')
+    .select('id')
+    .limit(1);
+
+  if (existingRules && existingRules.length > 0) {
+    console.log('Validation rules already exist, skipping creation');
+    return;
+  }
+
   const sampleRules = [
     {
       rule_name: 'Invoice Number Required',
@@ -225,15 +235,26 @@ export async function createSampleValidationRules() {
       description: 'Validates that a company name is present in the document'
     },
     {
-      rule_name: 'Total Amount Required',
-      rule_code: 'TOTAL_AMT_REQ',
+      rule_name: 'Document Type Required',
+      rule_code: 'DOC_TYPE_REQ',
       document_type: 'PDF Document',
-      condition_field: 'total_amount',
+      condition_field: 'document_type',
       condition_type: 'required',
-      error_message: 'Total amount must be specified',
+      error_message: 'Document type must be specified',
       severity: mapSeverityToDb('high'),
       is_active: true,
-      description: 'Validates that a total amount is present in the document'
+      description: 'Validates that a document type is present'
+    },
+    {
+      rule_name: 'Total Amount Numeric',
+      rule_code: 'TOTAL_NUMERIC',
+      document_type: 'PDF Document',
+      condition_field: 'total_amount',
+      condition_type: 'numeric',
+      error_message: 'Total amount must be a valid number',
+      severity: mapSeverityToDb('medium'),
+      is_active: true,
+      description: 'Validates that the total amount field contains a valid number'
     },
     {
       rule_name: 'Date Format Check',
@@ -259,3 +280,6 @@ export async function createSampleValidationRules() {
     console.log('Sample validation rules created successfully');
   }
 }
+
+// Auto-create sample rules when the module is imported
+createSampleValidationRules().catch(console.error);
